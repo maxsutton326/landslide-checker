@@ -1,0 +1,38 @@
+{
+  "generated_date": "2025-10-06T21:49:29.890Z",
+  "files": {
+    "numpy_stack": {
+      "path": "data/test_stack.json",
+      "shape": [
+        2,
+        100,
+        100,
+        3
+      ],
+      "size_mb": "0.23"
+    },
+    "polygons": {
+      "path": "data/landslides.geojson",
+      "count": 10,
+      "crs": "EPSG:32610"
+    },
+    "predictions": {
+      "path": "data/predictions.json",
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "size_mb": "0.08"
+    },
+    "geotiff_metadata": {
+      "source1": "data/source1_metadata.json",
+      "source2": "data/source2_metadata.json"
+    }
+  },
+  "notes": [
+    "NumPy arrays are stored as JSON for testing (use .npy in production)",
+    "GeoJSON used instead of shapefile for easier testing",
+    "GeoTIFF metadata only (actual raster data not generated)"
+  ]
+}

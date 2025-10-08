@@ -1,0 +1,38 @@
+project:
+  name: Test_Project
+  date: '2025-01-01'
+data_sources:
+  numpy_stack:
+    file: data/test.npy
+    epsg: 32610
+    origin:
+      - 500000
+      - 4200000
+    pixel_size: 10
+    before_index: 0
+    after_index: 1
+  shapefile:
+    file: data/test.shp
+    id_field: FID
+  source_images:
+    - file: data/img1.tif
+      type: after
+    - file: data/img2.tif
+      type: before
+  predictions:
+    file: data/pred.npy
+    default_index: 1
+display:
+  context_buffer: 1.5
+  min_window: 128
+  max_window: 512
+labels:
+  - code: 0
+    name: Not Evaluated
+    color: '#808080'
+  - code: 1
+    name: Correct
+    color: '#00FF00'
+  - code: 2
+    name: Error
+    color: '#FF0000'

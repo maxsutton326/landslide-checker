@@ -1,0 +1,16 @@
+project:
+  name: Test
+  date: '2025-01-01'
+data_sources:
+  numpy_stack:
+    file: data/test.npy
+    epsg: 32610
+    origin:
+      - 0
+      - 0
+    pixel_size: 10
+    before_index: 0
+    after_index: 1
+  shapefile:
+    file: data/test.shp
+    id_field: FID

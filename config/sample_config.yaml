@@ -1,0 +1,42 @@
+project:
+  name: "Test_Landslides"
+  date: "2025-01-01"
+
+data_sources:
+  numpy_stack:
+    file: "data/test_stack.npy"
+    epsg: 32610
+    origin: [500000, 4200000]
+    pixel_size: 10
+    before_index: 0
+    after_index: 1
+
+  shapefile:
+    file: "data/landslides.shp"
+    id_field: "FID"
+
+  source_images:
+    - file: "data/source1.tif"
+      type: "after"
+    - file: "data/source2.tif"
+      type: "after"
+
+  predictions:
+    file: "data/predictions.npy"
+    default_index: 1
+
+display:
+  context_buffer: 1.5
+  min_window: 128
+  max_window: 512
+
+labels:
+  - code: 0
+    name: "Not Evaluated"
+    color: "#808080"
+  - code: 1
+    name: "Correct Mapping"
+    color: "#00FF00"
+  - code: 2
+    name: "Mapping Error"
+    color: "#FF0000"

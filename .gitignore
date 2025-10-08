@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Data files
+data/*.npy
+data/*.tif
+data/*.shp
+data/*.shx
+data/*.dbf
+data/*.prj
+data/*.cpg
+*.npy
+*.tif
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Output
+output/
+results/
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg
+
+# Cache
+.cache/

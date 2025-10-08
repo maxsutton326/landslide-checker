@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landslide Data Quality Assessment - Multi-Panel View</title>
+    <link rel="stylesheet" href="src/viz/styles.css">
+</head>
+<body>
+    <div id="app">
+        <div id="header">
+            <h1>Landslide Quality Assessment</h1>
+            <div id="header-controls">
+                <button id="toggle-sync" class="header-btn" title="Toggle synchronization (S)">
+                    <span id="sync-icon">🔗</span> Sync
+                </button>
+                <button id="toggle-layout" class="header-btn" title="Toggle layout">
+                    <span>⊞</span> Layout
+                </button>
+                <button id="show-help" class="header-btn" title="Show keyboard shortcuts (H)">
+                    <span>?</span> Help
+                </button>
+                <div id="status">Initializing...</div>
+            </div>
+        </div>
+
+        <div id="navigation-bar">
+            <div id="navigation-controls">
+                <button id="first-btn" class="nav-btn" title="First landslide (Home)">⏮</button>
+                <button id="prev-btn" class="nav-btn" title="Previous (P or ←)">◀</button>
+                <div id="progress-tracker-container"></div>
+                <button id="next-btn" class="nav-btn" title="Next (N or →)">▶</button>
+                <button id="last-btn" class="nav-btn" title="Last landslide (End)">⏭</button>
+            </div>
+            <div id="quick-jump-container"></div>
+            <div id="bookmark-controls">
+                <button id="toggle-bookmark-btn" class="nav-btn" title="Toggle bookmark (B)">☆</button>
+            </div>
+        </div>
+
+        <div id="main-content">
+            <div id="panel-grid">
+                <div class="panel" id="source-1" data-panel-type="source">
+                    <div class="panel-header">Source Image 1 (Before)</div>
+                </div>
+                <div class="panel" id="source-2" data-panel-type="source">
+                    <div class="panel-header">Source Image 2 (After)</div>
+                </div>
+                <div class="panel" id="planet-before" data-panel-type="planet">
+                    <div class="panel-header">Planet Before</div>
+                </div>
+                <div class="panel" id="planet-after" data-panel-type="planet">
+                    <div class="panel-header">Planet After</div>
+                </div>
+                <div class="panel" id="prediction" data-panel-type="prediction">
+                    <div class="panel-header">Model Prediction</div>
+                </div>
+            </div>
+
+            <div id="side-panel">
+                <div id="label-panel-container"></div>
+
+                <div id="controls-section">
+                    <h3>View Controls</h3>
+                    <div id="view-controls">
+                        <button id="zoom-in" title="Zoom In (+)">+ Zoom In</button>
+                        <button id="zoom-out" title="Zoom Out (-)">− Zoom Out</button>
+                        <button id="reset-view" title="Reset View (R)">⟲ Reset</button>
+                    </div>
+                </div>
+
+                <div id="info-section">
+                    <h3>Landslide Information</h3>
+                    <div id="landslide-info">
+                        <p>Loading...</p>
+                    </div>
+                </div>
+
+                <div id="coordinates-section">
+                    <h3>Coordinates</h3>
+                    <div id="coordinates">
+                        <div class="coord-line">
+                            <span class="coord-label">X:</span>
+                            <span id="coord-x">—</span>
+                        </div>
+                        <div class="coord-line">
+                            <span class="coord-label">Y:</span>
+                            <span id="coord-y">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="src/viz/app_multi.js"></script>
+</body>
+</html>
