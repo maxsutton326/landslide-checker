@@ -13,7 +13,11 @@
       "Bash(pkill:*)",
       "Bash(python3:*)",
       "Bash(curl -s 'http://localhost:3000/api/config?path=tests/test_configs/browser_test.yaml')",
-      "Bash(curl -s 'http://localhost:3000/api/data/summary')"
+      "Bash(curl -s 'http://localhost:3000/api/data/summary')",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(curl:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

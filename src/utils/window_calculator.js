@@ -88,11 +88,11 @@ export function applyContextBuffer(bounds, bufferFactor) {
  * @returns {Object} - Constrained bounds
  */
 export function enforceWindowConstraints(bounds, config, origin, pixelSize) {
-  const { min_window, max_window } = config;
+  const { minWindowSize, maxWindowSize } = config;
 
   // Convert bounds to pixel dimensions
-  const topLeft = geoToPixel(bounds.minX, bounds.maxY, origin, pixelSize, null);
-  const bottomRight = geoToPixel(bounds.maxX, bounds.minY, origin, pixelSize, null);
+  const topLeft = geoToPixel(bounds.minX, bounds.minY, origin, pixelSize, null);
+  const bottomRight = geoToPixel(bounds.maxX, bounds.maxY, origin, pixelSize, null);
 
   let widthPixels = Math.abs(bottomRight.col - topLeft.col);
   let heightPixels = Math.abs(bottomRight.row - topLeft.row);
@@ -105,21 +105,21 @@ export function enforceWindowConstraints(bounds, config, origin, pixelSize) {
   let constrainedWidth = widthPixels;
   let constrainedHeight = heightPixels;
 
-  if (widthPixels < min_window) {
-    constrainedWidth = min_window;
-  } else if (widthPixels > max_window) {
-    constrainedWidth = max_window;
+  if (!!minWindowSize && widthPixels < minWindowSize) {
+    constrainedWidth = minWindowSize;
+  } else if (!!maxWindowSize && widthPixels > maxWindowSize) {
+    constrainedWidth = maxWindowSize;
   }
 
-  if (heightPixels < min_window) {
-    constrainedHeight = min_window;
-  } else if (heightPixels > max_window) {
-    constrainedHeight = max_window;
+  if (!!minWindowSize && heightPixels < minWindowSize) {
+    constrainedHeight = minWindowSize;
+  } else if (!!maxWindowSize && heightPixels > maxWindowSize) {
+    constrainedHeight = maxWindowSize;
   }
 
   // Convert back to geographic bounds, centered on polygon
-  const halfWidth = (constrainedWidth * pixelSize) / 2;
-  const halfHeight = (constrainedHeight * pixelSize) / 2;
+  const halfWidth = (constrainedWidth * pixelSize[0]) / 2;
+  const halfHeight = (constrainedHeight * pixelSize[1]) / 2;
 
   return {
     minX: centerX - halfWidth,
@@ -146,7 +146,7 @@ export function createWindowSpec(polygon, config, origin, pixelSize, epsg) {
   // 2. Apply context buffer
   const bufferedBounds = applyContextBuffer(
     polygonBounds,
-    config.context_buffer
+    config.contextBuffer
   );
 
   // 3. Enforce size constraints

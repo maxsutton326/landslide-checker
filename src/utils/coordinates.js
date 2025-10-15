@@ -68,8 +68,8 @@ export function geoToPixel(x, y, origin, pixelSize, epsg = null) {
   const [originX, originY] = origin;
 
   // Inverse of pixelToGeo
-  const col = (x - originX) / pixelSize;
-  const row = (originY - y) / pixelSize;
+  const col = (x - originX) / pixelSize[0];
+  const row = (originY - y) / pixelSize[1];
 
   return { row, col };
 }

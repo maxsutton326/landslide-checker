@@ -1,27 +1,27 @@
 {
-  "generated_date": "2025-10-06T21:49:29.890Z",
+  "generated_date": "2025-10-08T21:48:52.699Z",
   "files": {
     "numpy_stack": {
-      "path": "data/test_stack.json",
+      "path": "data/images_lu.npy",
       "shape": [
-        2,
-        100,
-        100,
+        20,
+        7529,
+        7173,
         3
       ],
       "size_mb": "0.23"
     },
     "polygons": {
-      "path": "data/landslides.geojson",
-      "count": 10,
-      "crs": "EPSG:32610"
+      "path": "data/japan.gpkg",
+      "count": 7000,
+      "crs": "3857"
     },
     "predictions": {
-      "path": "data/predictions.json",
+      "path": "data/output_8.tif",
       "shape": [
-        100,
-        100,
-        2
+        7529,
+        7173,
+        3
       ],
       "size_mb": "0.08"
     },

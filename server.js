@@ -6,7 +6,7 @@
  */
 
 import { createServer } from 'http';
-import { readFileSync, existsSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, statSync } from 'fs';
 import { join, extname, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import proj4 from 'proj4';
@@ -141,8 +141,8 @@ async function loadAllData(configPath = 'tests/test_configs/valid_config.yaml') 
 /**
  * Handle API requests
  */
-async function handleAPI(url, res) {
-  const urlObj = new URL(url, `http://${HOST}:${PORT}`);
+async function handleAPI(req, res) {
+  const urlObj = new URL(req.url, `http://${HOST}:${PORT}`);
   const pathname = urlObj.pathname;
 
   // CORS headers
@@ -447,6 +447,84 @@ async function handleAPI(url, res) {
       return true;
     }
 
+    // POST /api/label - Update landslide label
+    if (pathname === '/api/label' && req.method === 'POST') {
+      let body = '';
+
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+
+      req.on('end', () => {
+        try {
+          const labelData = JSON.parse(body);
+
+          // Validate required fields
+          if (labelData.id === undefined || labelData.id === null) {
+            res.writeHead(400, {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            });
+            res.end(JSON.stringify({ error: 'Feature ID is required' }));
+            return;
+          }
+
+          if (!dataCache.loaded || !dataCache.shapefile) {
+            res.writeHead(500, {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            });
+            res.end(JSON.stringify({ error: 'Data not loaded' }));
+            return;
+          }
+
+          // Find the feature
+          const feature = dataCache.shapefile.features.find(f => f.id === labelData.id);
+
+          if (!feature) {
+            res.writeHead(404, {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            });
+            res.end(JSON.stringify({ error: `Feature with ID ${labelData.id} not found` }));
+            return;
+          }
+
+          // Update feature properties with label data
+          if (!feature.properties) {
+            feature.properties = {};
+          }
+
+          feature.properties.label = labelData.label;
+          feature.properties.label_confidence = labelData.confidence || null;
+          feature.properties.label_notes = labelData.notes || null;
+          feature.properties.label_timestamp = labelData.timestamp || Date.now();
+
+          // Write updated shapefile back to disk
+          const shapefilePath = join(__dirname, dataCache.config.data_sources.shapefile.file);
+          writeFileSync(shapefilePath, JSON.stringify(dataCache.shapefile, null, 2));
+
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          });
+          res.end(JSON.stringify({
+            success: true,
+            id: labelData.id,
+            label: labelData.label
+          }));
+        } catch (error) {
+          res.writeHead(500, {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          });
+          res.end(JSON.stringify({ error: error.message }));
+        }
+      });
+
+      return true;
+    }
+
     return false;
 
   } catch (error) {
@@ -516,7 +594,7 @@ const server = createServer(async (req, res) => {
 
   // Handle API requests
   if (req.url.startsWith('/api/')) {
-    if (await handleAPI(req.url, res)) {
+    if (await handleAPI(req, res)) {
       return;
     }
   }

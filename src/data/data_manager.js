@@ -114,7 +114,7 @@ export class DataManager {
    * @param {Object} window - Optional window {rowStart, rowEnd, colStart, colEnd}
    * @returns {Promise<Object>} - {data, shape}
    */
-  async getImageSlice(timeIndex, bandIndex, window = null) {
+  async getImageSlice(timeIndex, bandIndex, window = null, imageType="image") {
     const params = new URLSearchParams({
       time: timeIndex,
       band: bandIndex
@@ -127,12 +127,53 @@ export class DataManager {
       params.append('colEnd', window.colEnd);
     }
 
-    const response = await fetch(`${API_BASE}/api/image/slice?${params}`);
+    const response = await fetch(`${API_BASE}/api/${imageType}/slice?${params}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch image slice: ${response.status}`);
     }
 
     return await response.json();
+  }
+
+  /**
+   * Get multi-band image tile from server (fetches all bands for RGB display)
+   *
+   * @param {number} timeIndex - Time index (0 = before, 1 = after)
+   * @param {Object} window - Window bounds {rowStart, rowEnd, colStart, colEnd}
+   * @param {number} numBands - Number of bands to fetch (default 3 for RGB)
+   * @returns {Promise<Object>} - {data: TypedArray, shape: [rows, cols, bands]}
+   */
+  async getImageTile(timeIndex, window, numBands = 3, imageType="image") {
+    // Fetch all bands in parallel
+    const bandPromises = [];
+    for (let bandIndex = 0; bandIndex < numBands; bandIndex++) {
+      bandPromises.push(this.getImageSlice(timeIndex, bandIndex, window, imageType));
+    }
+
+    const bandResults = await Promise.all(bandPromises);
+    // Verify all bands have same shape
+    const shape = bandResults[0].shape;
+    const [rows, cols] = shape;
+
+    // Interleave band data into [rows, cols, bands] format
+    const totalPixels = rows * cols * numBands;
+    const interleavedData = new Float32Array(totalPixels);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const pixelIndex = r * cols + c;
+        const outputIndex = pixelIndex * numBands;
+
+        for (let b = 0; b < numBands; b++) {
+          interleavedData[outputIndex + b] = bandResults[b].data[pixelIndex];
+        }
+      }
+    }
+
+    return {
+      data: interleavedData,
+      shape: [rows, cols, numBands]
+    };
   }
 
   /**
@@ -142,9 +183,9 @@ export class DataManager {
    * @param {Object} window - Optional window {rowStart, rowEnd, colStart, colEnd}
    * @returns {Promise<Object>} - {data, shape}
    */
-  async getPredictionSlice(classIndex, window = null) {
+  async getPredictionSlice(timeIndex, window = null) {
     const params = new URLSearchParams({
-      class: classIndex
+      time: timeIndex
     });
 
     if (window) {
@@ -160,6 +201,52 @@ export class DataManager {
     }
 
     return await response.json();
+  }
+
+  /**
+   * Get label slice from server (ground truth labels)
+   *
+   * @param {number} timeIndex - Time index
+   * @param {Object} window - Optional window {rowStart, rowEnd, colStart, colEnd}
+   * @returns {Promise<Object>} - {data, shape}
+   */
+  async getLabelSlice(timeIndex, window = null) {
+    const params = new URLSearchParams({
+      time: timeIndex,
+      band: 0  // Labels are single-band
+    });
+
+    if (window) {
+      params.append('rowStart', window.rowStart);
+      params.append('rowEnd', window.rowEnd);
+      params.append('colStart', window.colStart);
+      params.append('colEnd', window.colEnd);
+    }
+
+    const response = await fetch(`${API_BASE}/api/labels/slice?${params}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch label slice: ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Get label tile (single-band, so just returns getLabelSlice)
+   *
+   * @param {number} timeIndex - Time index
+   * @param {Object} window - Window bounds {rowStart, rowEnd, colStart, colEnd}
+   * @returns {Promise<Object>} - {data: TypedArray, shape: [rows, cols, 1]}
+   */
+  async getLabelTile(timeIndex, window) {
+    const labelSlice = await this.getLabelSlice(timeIndex, window);
+
+    // Add channel dimension for consistency with image tiles
+    const [rows, cols] = labelSlice.shape;
+    return {
+      data: new Float32Array(labelSlice.data),
+      shape: [rows, cols, 1]
+    };
   }
 
   /**
@@ -194,6 +281,13 @@ export class DataManager {
           data: null
         } : null;
 
+      case 'labels':
+        return this.summary.labels ? {
+          metadata: this.summary.labels,
+          // Data is fetched on-demand via getLabelSlice()
+          data: null
+        } : null;
+
       default:
         return null;
     }
@@ -216,6 +310,8 @@ export class DataManager {
         return !!this.landslides;
       case 'predictions':
         return !!this.summary?.predictions;
+      case 'labels':
+        return !!this.summary?.labels;
       default:
         return false;
     }
@@ -234,6 +330,7 @@ export class DataManager {
     if (this.summary?.numpy_stack) sources.push('numpy_stack');
     if (this.landslides) sources.push('shapefile');
     if (this.summary?.predictions) sources.push('predictions');
+    if (this.summary?.labels) sources.push('labels');
     return sources;
   }
 

@@ -12,11 +12,11 @@ import { LandslideNavigator } from './landslide_navigator.js';
 import { ProgressTracker } from './progress_tracker.js';
 import { QuickJump } from './quick_jump.js';
 import { KeyboardHandler } from './keyboard_handler.js';
+import { LabelPanel } from './label_panel.js';
 import { NavigationState } from '../state/navigation_state.js';
 import { PerformanceMonitor } from '../utils/performance.js';
 import { showLoading, hideLoading } from './transitions.js';
 import { calculateDisplayWindow } from '../utils/window_calculator.js';
-import { cropArray4D } from '../utils/image_cropper.js';
 
 /**
  * Multi-Panel Landslide Viewer Application
@@ -30,12 +30,14 @@ class MultiPanelLandslideApp {
     this.progressTracker = null;
     this.quickJump = null;
     this.keyboardHandler = null;
+    this.labelPanel = null;
     this.navigationState = null;
     this.performanceMonitor = null;
     this.landslides = [];
     this.config = null;
     this.isLoading = false;
     this.currentLabel = null;
+    this.currentLandslideId = null;
   }
 
   /**
@@ -71,7 +73,7 @@ class MultiPanelLandslideApp {
       // Setup UI
       this.setupPanels();
       this.setupControls();
-      this.setupEventHandlers();
+      // this.setupEventHandlers();
 
       // Restore last session
       const lastId = this.navigationState.getLastLandslideId();
@@ -114,10 +116,6 @@ class MultiPanelLandslideApp {
         predictions: {
           path: summary.files.predictions.path,
           shape: summary.files.predictions.shape
-        },
-        metadata: {
-          source1: summary.files.geotiff_metadata.source1,
-          source2: summary.files.geotiff_metadata.source2
         }
       };
     } catch (error) {
@@ -277,7 +275,8 @@ class MultiPanelLandslideApp {
       { id: 'source-2', type: 'source', label: 'Source Image 2 (After)' },
       { id: 'planet-before', type: 'planet', label: 'Planet Before' },
       { id: 'planet-after', type: 'planet', label: 'Planet After' },
-      { id: 'prediction', type: 'prediction', label: 'Model Prediction' }
+      { id: 'prediction', type: 'prediction', label: 'Model Prediction' },
+      { id: 'labels', type: 'labels', label: 'Ground Truth Labels' }
     ];
 
     panelConfigs.forEach(config => {
@@ -409,6 +408,28 @@ class MultiPanelLandslideApp {
         syncBtn.classList.toggle('active', syncState.enabled);
       });
     }
+
+    // Initialize Label Panel
+    const labelPanelContainer = document.getElementById('label-panel-container');
+    if (labelPanelContainer) {
+      this.labelPanel = new LabelPanel(labelPanelContainer, {
+        labels: this.config.labels || [
+          { code: 'landslide', label: 'Landslide', color: '#dc3545', key: '1' },
+          { code: 'no-landslide', label: 'No Landslide', color: '#28a745', key: '2' },
+          { code: 'uncertain', label: 'Uncertain', color: '#ffc107', key: '3' },
+          { code: 'skip', label: 'Skip', color: '#6c757d', key: '4' },
+          { code: 'flag', label: 'Flag for Review', color: '#ff6b6b', key: '5' }
+        ]
+      });
+
+      // Handle label apply
+      this.labelPanel.onApply((state) => {
+        this.saveLabelToServer(state);
+      });
+
+      // Enable keyboard shortcuts for label panel
+      this.labelPanel.enableKeyboardShortcuts();
+    }
   }
 
   /**
@@ -418,9 +439,9 @@ class MultiPanelLandslideApp {
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') {
-        this.nextLandslide();
+        this.navigator.next();
       } else if (e.key === 'ArrowLeft' || e.key === 'p' || e.key === 'P') {
-        this.previousLandslide();
+        this.navigator.previous();
       } else if (e.key === 'r' || e.key === 'R') {
         this.syncController.resetAllViews();
       } else if (e.key === 's' || e.key === 'S') {
@@ -446,7 +467,13 @@ class MultiPanelLandslideApp {
     }
 
     this.isLoading = true;
-    const landslide = this.landslides[index];
+    let landslide = this.landslides[index];
+
+    // Store current landslide ID for labeling
+    this.currentLandslideId = landslide.id !== undefined ? landslide.id : landslide.properties?.FID;
+
+    // Load existing label from landslide
+    this.loadLabelFromLandslide(landslide);
 
     // Show loading indicators
     this.panelManager.getAllPanels().forEach(panel => {
@@ -460,6 +487,10 @@ class MultiPanelLandslideApp {
       const metadata = await this.dataManager.getData('numpy_stack').metadata;
       const origin = metadata.origin;
       const pixelSize = metadata.pixelSize;
+      const beforeMonth = landslide.properties?.month - 2
+      const afterMonth = landslide.properties?.month - 1
+
+      landslide.metadata = metadata
 
       // Calculate display window
       const displayWindow = calculateDisplayWindow(
@@ -470,38 +501,30 @@ class MultiPanelLandslideApp {
         this.config.shapefile.epsg
       );
 
-      // Crop data for each panel
-      const stackShape = this.config.numpy_stack.shape;
-      console.log(displayWindow)
+      // Prepare window bounds for tile requests
+      const windowBounds = {
+        rowStart: displayWindow.geoBounds.rowStart,
+        rowEnd: displayWindow.geoBounds.rowEnd,
+        colStart: displayWindow.geoBounds.colStart,
+        colEnd: displayWindow.geoBounds.colEnd
+      };
 
-      // Source 1 (before)
-      const source1Data = cropArray4D(
-        this.dataManager.numpy_stack,
-        stackShape,
-        displayWindow.rowStart,
-        displayWindow.rowEnd,
-        displayWindow.colStart,
-        displayWindow.colEnd,
-        0
-      );
+      // Fetch image tiles from server (all bands for RGB display)
+      // Source 1 (before) - timeIndex 0
+      const source1Data = await this.dataManager.getImageTile(beforeMonth, windowBounds);
 
-      // Source 2 (after)
-      const source2Data = cropArray4D(
-        this.dataManager.numpy_stack,
-        stackShape,
-        displayWindow.rowStart,
-        displayWindow.rowEnd,
-        displayWindow.colStart,
-        displayWindow.colEnd,
-        1
-      );
+      // Source 2 (after) - timeIndex 1
+      const source2Data = await this.dataManager.getImageTile(afterMonth, windowBounds);
 
       // For now, use same data for planet panels (in production, these would be separate)
       const planetBeforeData = { ...source1Data };
       const planetAfterData = { ...source2Data };
 
-      // Prediction data (simplified)
-      const predictionData = { ...source1Data };
+      // Prediction data
+      const predictionData = await this.dataManager.getImageTile(afterMonth, windowBounds, 3, "predictions");
+
+      // Labels data (ground truth)
+      const labelsData = await this.dataManager.getLabelTile(afterMonth, windowBounds);
 
       // Update all panels
       this.panelManager.updateAll({
@@ -530,6 +553,11 @@ class MultiPanelLandslideApp {
           array: predictionData.data,
           shape: predictionData.shape,
           bounds: displayWindow.geoBounds
+        },
+        labelsData: {
+          array: labelsData.data,
+          shape: labelsData.shape,
+          bounds: displayWindow.geoBounds
         }
       });
 
@@ -557,6 +585,9 @@ class MultiPanelLandslideApp {
 
       // Update navigation buttons
       this.updateNavigationButtons();
+
+
+      this.syncController.resetAllViews();
 
       this.showStatus(`Landslide ${index + 1}/${this.landslides.length}`);
     } catch (error) {
@@ -658,6 +689,84 @@ class MultiPanelLandslideApp {
     }
 
     console.log(`Applied label: ${label}`);
+  }
+
+  /**
+   * Save label to server
+   *
+   * @param {Object} labelState - Label state from LabelPanel
+   */
+  async saveLabelToServer(labelState) {
+    try {
+      if (this.currentLandslideId === null || this.currentLandslideId === undefined) {
+        console.error('No current landslide ID');
+        return;
+      }
+
+      const labelData = {
+        id: this.currentLandslideId,
+        label: labelState.label,
+        confidence: labelState.confidence,
+        notes: labelState.notes,
+        timestamp: labelState.timestamp
+      };
+
+      const response = await fetch('http://localhost:3000/api/label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(labelData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save label: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Label saved:', result);
+
+      // Update local landslide object
+      const currentLandslide = this.navigator.getCurrent();
+      if (currentLandslide) {
+        if (!currentLandslide.properties) {
+          currentLandslide.properties = {};
+        }
+        currentLandslide.properties.label = labelData.label;
+        currentLandslide.properties.label_confidence = labelData.confidence;
+        currentLandslide.properties.label_notes = labelData.notes;
+        currentLandslide.properties.label_timestamp = labelData.timestamp;
+      }
+
+      // Update progress tracker if this is a definitive label
+      if (this.progressTracker && (labelState.label === 'landslide' || labelState.label === 'no-landslide')) {
+        this.progressTracker.incrementStat('labeled');
+      }
+
+      // Auto-advance to next landslide
+      this.navigator.next();
+
+    } catch (error) {
+      console.error('Error saving label:', error);
+      if (this.labelPanel) {
+        this.labelPanel.showError('Failed to save label');
+      }
+    }
+  }
+
+  /**
+   * Load label from current landslide
+   *
+   * @param {Object} landslide - Landslide feature
+   */
+  loadLabelFromLandslide(landslide) {
+    if (!this.labelPanel || !landslide) return;
+
+    const props = landslide.properties || {};
+
+    this.labelPanel.setState({
+      label: props.label || null,
+      confidence: props.label_confidence || 'medium',
+      notes: props.label_notes || ''
+    });
   }
 
   /**

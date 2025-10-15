@@ -205,6 +205,8 @@ export class Panel extends EventEmitter {
     // Render based on panel type
     if (this.type === 'prediction') {
       this.renderPrediction(transform);
+    } else if (this.type === 'labels') {
+      this.renderLabels(transform);
     } else {
       this.renderImage(transform);
     }
@@ -271,6 +273,32 @@ export class Panel extends EventEmitter {
   }
 
   /**
+   * Render labels (ground truth)
+   *
+   * @param {Object} transform - Coordinate transform
+   */
+  renderLabels(transform) {
+    if (!this.data.array || !this.data.shape) {
+      this.renderPlaceholder('No labels data');
+      return;
+    }
+
+    try {
+      // Labels are single-band categorical data
+      // Render as grayscale or colored by category
+      this.renderer.renderArray(
+        this.data.array,
+        this.data.shape,
+        this.data.bounds,
+        transform
+      );
+    } catch (error) {
+      console.error(`Error rendering labels in panel ${this.label}:`, error);
+      this.renderPlaceholder('Error loading labels');
+    }
+  }
+
+  /**
    * Render polygon overlay
    *
    * @param {Object} transform - Coordinate transform
@@ -283,7 +311,8 @@ export class Panel extends EventEmitter {
     this.renderer.renderPolygon(
       this.polygon.geometry,
       style,
-      transform
+      transform,
+      this.polygon.metadata
     );
   }
 

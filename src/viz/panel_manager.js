@@ -129,7 +129,8 @@ export class PanelManager {
       source2Data,
       planetBeforeData,
       planetAfterData,
-      predictionData
+      predictionData,
+      labelsData
     } = landslideData;
 
     // Set polygon on all panels
@@ -161,6 +162,11 @@ export class PanelManager {
     if (predictionData) {
       const panel = this.getPanel('prediction');
       if (panel) panel.setData(predictionData);
+    }
+
+    if (labelsData) {
+      const panel = this.getPanel('labels');
+      if (panel) panel.setData(labelsData);
     }
 
     return this;

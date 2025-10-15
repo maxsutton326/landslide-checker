@@ -3,6 +3,7 @@
  *
  * Handles rendering of satellite imagery and overlays on HTML5 Canvas
  */
+import { pixelToGeo, geoToPixel } from '../utils/coordinates.js';
 
 /**
  * Convert float array (0-1) to uint8 array (0-255)
@@ -28,7 +29,8 @@ export function floatToUint8(floats) {
  * @returns {ImageData} - Canvas ImageData object
  */
 export function arrayToImageData(array, shape) {
-  const [height, width, bands] = shape;
+  let [height, width, bands] = shape;
+  if (!bands) bands = 1
 
   // Create ImageData (handle Node.js environment)
   let imageData;
@@ -46,7 +48,8 @@ export function arrayToImageData(array, shape) {
   for (let row = 0; row < height; row++) {
     for (let col = 0; col < width; col++) {
       const pixelIndex = (row * width + col) * bands;
-      const imageDataIndex = (row * width + col) * 4;
+      const imageRow = height - row
+      const imageDataIndex = (imageRow * width + col) * 4;
 
       if (bands === 1) {
         // Grayscale: replicate to RGB
@@ -58,13 +61,13 @@ export function arrayToImageData(array, shape) {
         imageData.data[imageDataIndex + 3] = 255; // Alpha
       } else if (bands >= 3) {
         // RGB or more
-        const r = Math.max(0, Math.min(1, array[pixelIndex]));
-        const g = Math.max(0, Math.min(1, array[pixelIndex + 1]));
-        const b = Math.max(0, Math.min(1, array[pixelIndex + 2]));
+        const r = Math.max(0, Math.min(255, array[pixelIndex]));
+        const g = Math.max(0, Math.min(255, array[pixelIndex + 1]));
+        const b = Math.max(0, Math.min(255, array[pixelIndex + 2]));
 
-        imageData.data[imageDataIndex] = Math.round(r * 255);
-        imageData.data[imageDataIndex + 1] = Math.round(g * 255);
-        imageData.data[imageDataIndex + 2] = Math.round(b * 255);
+        imageData.data[imageDataIndex] = Math.round(r);
+        imageData.data[imageDataIndex + 1] = Math.round(g);
+        imageData.data[imageDataIndex + 2] = Math.round(b);
         imageData.data[imageDataIndex + 3] = 255; // Alpha
       }
     }
@@ -115,7 +118,7 @@ export class CanvasRenderer {
    * @param {Object} transform - Coordinate transform object
    */
   renderArray(array, shape, bounds, transform) {
-    if (!array || !shape || shape.length !== 3) {
+    if (!array || !shape || (shape.length !== 3 && shape.length !== 2)) {
       throw new Error('Invalid array or shape');
     }
 
@@ -127,8 +130,8 @@ export class CanvasRenderer {
     this.currentImageData = imageData;
 
     // Calculate where to draw the image on canvas
-    const topLeft = transform.geoToCanvas(bounds.minX, bounds.maxY);
-    const bottomRight = transform.geoToCanvas(bounds.maxX, bounds.minY);
+    const topLeft = transform.geoToCanvas(bounds.colStart, bounds.rowEnd);
+    const bottomRight = transform.geoToCanvas(bounds.colEnd, bounds.rowStart);
 
     const canvasWidth = bottomRight.x - topLeft.x;
     const canvasHeight = bottomRight.y - topLeft.y;
@@ -157,7 +160,7 @@ export class CanvasRenderer {
    * @param {Object} style - Rendering style
    * @param {Object} transform - Coordinate transform object
    */
-  renderPolygon(geometry, style, transform) {
+  renderPolygon(geometry, style, transform, metadata) {
     if (!geometry || geometry.type !== 'Polygon') {
       throw new Error('Invalid polygon geometry');
     }
@@ -165,7 +168,7 @@ export class CanvasRenderer {
     this.ctx.save();
 
     // Apply style
-    this.ctx.fillStyle = style.fillColor || 'rgba(255, 255, 0, 0.3)';
+    this.ctx.fillStyle = style.fillColor || 'rgba(255, 255, 0, 0)';
     this.ctx.strokeStyle = style.strokeColor || '#FFFF00';
     this.ctx.lineWidth = style.lineWidth || 2;
 
@@ -175,7 +178,8 @@ export class CanvasRenderer {
     geometry.coordinates.forEach((ring, ringIndex) => {
       ring.forEach((coord, i) => {
         const [x, y] = coord;
-        const canvasCoord = transform.geoToCanvas(x, y);
+        const pixelCoord = geoToPixel(x, y, metadata.origin, metadata.pixelSize) 
+        const canvasCoord = transform.geoToCanvas(pixelCoord.col, pixelCoord.row);
 
         if (i === 0) {
           this.ctx.moveTo(canvasCoord.x, canvasCoord.y);

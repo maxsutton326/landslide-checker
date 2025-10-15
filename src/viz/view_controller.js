@@ -78,8 +78,8 @@ export class ViewController extends EventEmitter {
     const canvasWidth = this.canvas.width;
     const canvasHeight = this.canvas.height;
 
-    const geoWidth = this.bounds.maxX - this.bounds.minX;
-    const geoHeight = this.bounds.maxY - this.bounds.minY;
+    const geoWidth = this.bounds.colEnd - this.bounds.colStart;
+    const geoHeight = this.bounds.rowEnd - this.bounds.rowStart;
 
     // Calculate scale to fit
     const scaleX = canvasWidth / geoWidth;
@@ -89,8 +89,8 @@ export class ViewController extends EventEmitter {
     this.scale = Math.min(scaleX, scaleY) * 0.9; // 0.9 for padding
 
     // Center the view
-    const geoCenterX = (this.bounds.minX + this.bounds.maxX) / 2;
-    const geoCenterY = (this.bounds.minY + this.bounds.maxY) / 2;
+    const geoCenterX = (this.bounds.colStart + this.bounds.colEnd) / 2;
+    const geoCenterY = (this.bounds.rowStart + this.bounds.rowEnd) / 2;
 
     this.offset.x = canvasWidth / 2 - geoCenterX * this.scale;
     this.offset.y = canvasHeight / 2 + geoCenterY * this.scale; // Y is flipped

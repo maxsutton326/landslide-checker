@@ -279,7 +279,8 @@ export function getPolygonBounds(coordinates) {
 export function confidenceStyle(confidence) {
   // High confidence: green, low confidence: red
   const hue = confidence * 120; // 0 = red, 120 = green
-  const alpha = 0.3 + confidence * 0.2; // More confident = slightly more opaque
+  // const alpha = 0.3 + confidence * 0.2; // More confident = slightly more opaque
+  const alpha = 0
 
   return {
     fillColor: `hsla(${hue}, 70%, 50%, ${alpha})`,
