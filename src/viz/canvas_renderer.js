@@ -30,6 +30,7 @@ export function floatToUint8(floats) {
  */
 export function arrayToImageData(array, shape) {
   let [height, width, bands] = shape;
+  const output_bands = 4
   if (!bands) bands = 1
 
   // Create ImageData (handle Node.js environment)
@@ -41,7 +42,7 @@ export function arrayToImageData(array, shape) {
     imageData = {
       width,
       height,
-      data: new Uint8ClampedArray(width * height * 4)
+      data: new Uint8ClampedArray(width * height * output_bands)
     };
   }
 
@@ -49,7 +50,7 @@ export function arrayToImageData(array, shape) {
     for (let col = 0; col < width; col++) {
       const pixelIndex = (row * width + col) * bands;
       const imageRow = height - row
-      const imageDataIndex = (imageRow * width + col) * 4;
+      const imageDataIndex = (imageRow * width + col) * output_bands;
 
       if (bands === 1) {
         // Grayscale: replicate to RGB
@@ -61,9 +62,10 @@ export function arrayToImageData(array, shape) {
         imageData.data[imageDataIndex + 3] = 255; // Alpha
       } else if (bands >= 3) {
         // RGB or more
-        const r = Math.max(0, Math.min(255, array[pixelIndex]));
-        const g = Math.max(0, Math.min(255, array[pixelIndex + 1]));
-        const b = Math.max(0, Math.min(255, array[pixelIndex + 2]));
+        const multiplier = Math.max(1, array[pixelIndex]) === 1 ? 255 : 1
+        const r = Math.max(0, Math.min(255, array[pixelIndex] * multiplier));
+        const g = Math.max(0, Math.min(255, array[pixelIndex + 1] * multiplier));
+        const b = Math.max(0, Math.min(255, array[pixelIndex + 2] * multiplier));
 
         imageData.data[imageDataIndex] = Math.round(r);
         imageData.data[imageDataIndex + 1] = Math.round(g);

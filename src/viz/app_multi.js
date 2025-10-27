@@ -38,6 +38,7 @@ class MultiPanelLandslideApp {
     this.isLoading = false;
     this.currentLabel = null;
     this.currentLandslideId = null;
+    this.interfaceMode = 'basic'; // Default mode
   }
 
   /**
@@ -102,6 +103,7 @@ class MultiPanelLandslideApp {
   async loadConfig() {
     try {
       const response = await fetch('data/test_data_summary.json');
+      // const response = await fetch('data/lombok/lombok.json');
       const summary = await response.json();
 
       return {
@@ -251,6 +253,11 @@ class MultiPanelLandslideApp {
         this.quickJump.toggleBookmark(String(id));
         this.updateBookmarkButton();
       }
+    });
+
+    // Interface mode toggle
+    kb.on('toggle-interface-mode', () => {
+      this.toggleInterfaceMode();
     });
 
     // Labeling
@@ -409,6 +416,9 @@ class MultiPanelLandslideApp {
       });
     }
 
+    // Load interface mode preference
+    this.interfaceMode = localStorage.getItem('interfaceMode') || 'advanced';
+
     // Initialize Label Panel
     const labelPanelContainer = document.getElementById('label-panel-container');
     if (labelPanelContainer) {
@@ -420,7 +430,7 @@ class MultiPanelLandslideApp {
           { code: 'skip', label: 'Skip', color: '#6c757d', key: '4' },
           { code: 'flag', label: 'Flag for Review', color: '#ff6b6b', key: '5' }
         ]
-      });
+      }, this.interfaceMode);
 
       // Handle label apply
       this.labelPanel.onApply((state) => {
@@ -429,6 +439,15 @@ class MultiPanelLandslideApp {
 
       // Enable keyboard shortcuts for label panel
       this.labelPanel.enableKeyboardShortcuts();
+    }
+
+    // Setup interface mode toggle button
+    const toggleModeBtn = document.getElementById('toggle-interface-mode');
+    if (toggleModeBtn) {
+      this.updateModeButtonText();
+      toggleModeBtn.addEventListener('click', () => {
+        this.toggleInterfaceMode();
+      });
     }
   }
 
@@ -521,7 +540,13 @@ class MultiPanelLandslideApp {
       const planetAfterData = { ...source2Data };
 
       // Prediction data
-      const predictionData = await this.dataManager.getImageTile(afterMonth, windowBounds, 3, "predictions");
+      const predictionData = await this.dataManager.getImageTile(afterMonth, calculateDisplayWindow(
+        landslide,
+        { contextBuffer: 1.5, minWindowSize: 50 },
+        await this.dataManager.getData('predictions').metadata.origin,
+        await this.dataManager.getData('predictions').metadata.pixelSize,
+        this.config.shapefile.epsg
+      ).geoBounds, 3, "predictions");
 
       // Labels data (ground truth)
       const labelsData = await this.dataManager.getLabelTile(afterMonth, windowBounds);
@@ -804,6 +829,36 @@ class MultiPanelLandslideApp {
     if (statusDiv) {
       statusDiv.textContent = message;
       statusDiv.className = 'status error';
+    }
+  }
+
+  /**
+   * Toggle interface mode between basic and advanced
+   */
+  toggleInterfaceMode() {
+    this.interfaceMode = this.interfaceMode === 'basic' ? 'advanced' : 'basic';
+
+    // Save preference
+    localStorage.setItem('interfaceMode', this.interfaceMode);
+
+    // Update label panel
+    if (this.labelPanel) {
+      this.labelPanel.setMode(this.interfaceMode);
+    }
+
+    // Update button text
+    this.updateModeButtonText();
+
+    console.log(`Interface mode switched to: ${this.interfaceMode}`);
+  }
+
+  /**
+   * Update mode button text
+   */
+  updateModeButtonText() {
+    const modeText = document.getElementById('mode-text');
+    if (modeText) {
+      modeText.textContent = this.interfaceMode === 'basic' ? 'Basic' : 'Advanced';
     }
   }
 }

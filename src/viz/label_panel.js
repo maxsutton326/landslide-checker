@@ -13,8 +13,9 @@ export class LabelPanel extends EventEmitter {
   /**
    * @param {HTMLElement} container - Container element
    * @param {Object} labelConfig - Label configuration
+   * @param {string} mode - Interface mode ('basic' or 'advanced')
    */
-  constructor(container, labelConfig) {
+  constructor(container, labelConfig, mode = 'advanced') {
     super();
 
     if (!container) {
@@ -23,6 +24,7 @@ export class LabelPanel extends EventEmitter {
 
     this.container = container;
     this.labelConfig = labelConfig || this.getDefaultConfig();
+    this.mode = mode;
     this.currentValue = null;
     this.currentConfidence = 'medium';
     this.currentNotes = '';
@@ -53,7 +55,7 @@ export class LabelPanel extends EventEmitter {
    */
   initialize() {
     this.container.innerHTML = '';
-    this.container.className = 'label-panel';
+    this.container.className = `label-panel label-panel-${this.mode}`;
 
     // Title
     const title = document.createElement('h3');
@@ -66,23 +68,26 @@ export class LabelPanel extends EventEmitter {
     this.createLabelOptions();
     this.container.appendChild(this.labelOptionsContainer);
 
-    // Confidence selector
-    this.confidenceContainer = document.createElement('div');
-    this.confidenceContainer.className = 'confidence-selector';
-    this.createConfidenceSelector();
-    this.container.appendChild(this.confidenceContainer);
+    // Only show confidence, notes, and action buttons in advanced mode
+    if (this.mode === 'advanced') {
+      // Confidence selector
+      this.confidenceContainer = document.createElement('div');
+      this.confidenceContainer.className = 'confidence-selector';
+      this.createConfidenceSelector();
+      this.container.appendChild(this.confidenceContainer);
 
-    // Notes section
-    this.notesContainer = document.createElement('div');
-    this.notesContainer.className = 'notes-section';
-    this.createNotesSection();
-    this.container.appendChild(this.notesContainer);
+      // Notes section
+      this.notesContainer = document.createElement('div');
+      this.notesContainer.className = 'notes-section';
+      this.createNotesSection();
+      this.container.appendChild(this.notesContainer);
 
-    // Actions
-    this.actionsContainer = document.createElement('div');
-    this.actionsContainer.className = 'label-actions';
-    this.createActions();
-    this.container.appendChild(this.actionsContainer);
+      // Actions
+      this.actionsContainer = document.createElement('div');
+      this.actionsContainer.className = 'label-actions';
+      this.createActions();
+      this.container.appendChild(this.actionsContainer);
+    }
   }
 
   /**
@@ -91,7 +96,12 @@ export class LabelPanel extends EventEmitter {
   createLabelOptions() {
     this.labelOptionsContainer.innerHTML = '';
 
-    this.labelConfig.labels.forEach(labelDef => {
+    // Filter labels for basic mode (only landslide and no-landslide)
+    const labelsToShow = this.mode === 'basic'
+      ? this.labelConfig.labels.filter(l => l.code === 'landslide' || l.code === 'no-landslide')
+      : this.labelConfig.labels;
+
+    labelsToShow.forEach(labelDef => {
       const option = document.createElement('button');
       option.className = 'label-option';
       option.dataset.code = labelDef.code;
@@ -110,6 +120,11 @@ export class LabelPanel extends EventEmitter {
 
       option.addEventListener('click', () => {
         this.selectLabel(labelDef.code);
+
+        // Auto-apply in basic mode
+        if (this.mode === 'basic') {
+          setTimeout(() => this.apply(), 100);
+        }
       });
 
       this.labelOptionsContainer.appendChild(option);
@@ -226,8 +241,10 @@ export class LabelPanel extends EventEmitter {
       }
     });
 
-    // Enable apply button
-    this.applyButton.disabled = false;
+    if (this.mode === 'advanced') {
+      // Enable apply button
+      this.applyButton.disabled = false;
+    }
 
     this.emit('select', { code, state: this.getState() });
   }
@@ -348,7 +365,9 @@ export class LabelPanel extends EventEmitter {
       this.notesTextarea.value = '';
     }
 
-    this.applyButton.disabled = true;
+    if (this.mode === 'advanced') {
+      this.applyButton.disabled = true;
+    }
 
     this.emit('clear');
   }
@@ -507,6 +526,30 @@ export class LabelPanel extends EventEmitter {
     } else {
       this.container.classList.remove('disabled');
     }
+  }
+
+  /**
+   * Set interface mode
+   *
+   * @param {string} mode - Mode to set ('basic' or 'advanced')
+   */
+  setMode(mode) {
+    if (mode !== 'basic' && mode !== 'advanced') {
+      console.warn('Invalid mode:', mode);
+      return;
+    }
+
+    this.mode = mode;
+    this.initialize();
+  }
+
+  /**
+   * Get current mode
+   *
+   * @returns {string} - Current mode
+   */
+  getMode() {
+    return this.mode;
   }
 
   /**

@@ -1019,6 +1019,39 @@ button:focus {
   pointer-events: none;
 }
 
+/* Basic Mode Styles */
+.label-panel-basic .label-options {
+  gap: 0.75rem;
+}
+
+.label-panel-basic .label-option {
+  padding: 1rem;
+  font-size: 1rem;
+  border-left-width: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.label-panel-basic .label-option:hover {
+  transform: translateX(4px);
+  background: #3a4a5a;
+}
+
+.label-panel-basic .label-option:active {
+  transform: scale(0.98);
+}
+
+.label-panel-basic .label-key {
+  width: 28px;
+  height: 28px;
+  font-size: 0.9rem;
+}
+
+.label-panel-basic .label-text {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
 /* Notification System */
 .notification-container {
   position: fixed;

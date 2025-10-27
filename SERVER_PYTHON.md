@@ -164,7 +164,7 @@ data_sources:
     after_index: 1
 
   shapefile:
-    file: data/japan.gpkg  # GeoPackage, GeoJSON, or Shapefile
+    file: data/lombok.gpkg  # GeoPackage, GeoJSON, or Shapefile
     id_field: FID
 
   predictions:

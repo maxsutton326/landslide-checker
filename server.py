@@ -325,6 +325,7 @@ class LandslideServerHandler(BaseHTTPRequestHandler):
                     }
 
                 if data_cache["predictions"] is not None:
+                    stack_config = data_cache["config"]["data_sources"]["predictions"]
                     summary["predictions"] = {
                         "shape": list(data_cache["predictions"].shape),
                         "classes": (
@@ -332,6 +333,8 @@ class LandslideServerHandler(BaseHTTPRequestHandler):
                             if len(data_cache["predictions"].shape) > 2
                             else 1
                         ),
+                        "origin": stack_config.get("origin"),
+                        "pixelSize": stack_config.get("pixel_size"),
                     }
 
                 if data_cache["labels"] is not None:

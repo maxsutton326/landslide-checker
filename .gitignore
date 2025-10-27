@@ -51,3 +51,8 @@ results/
 
 # Cache
 .cache/
+
+# Claude Code context (session state)
+.claude_context.md
+data/lombok/**
+data/japan/**

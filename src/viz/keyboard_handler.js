@@ -77,6 +77,8 @@ export class KeyboardHandler extends EventEmitter {
     this.register('h', 'Show help', 'show-help');
     this.register('H', 'Show help', 'show-help');
     this.register('?', 'Show help', 'show-help');
+    this.register('i', 'Toggle interface mode', 'toggle-interface-mode');
+    this.register('I', 'Toggle interface mode', 'toggle-interface-mode');
     this.register('Escape', 'Close overlay/deselect', 'escape');
 
     // Jump
