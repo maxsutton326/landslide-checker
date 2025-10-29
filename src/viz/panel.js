@@ -212,9 +212,9 @@ export class Panel extends EventEmitter {
     }
 
     // Render polygon overlay if present
-    if (this.polygon) {
-      this.renderPolygon(transform);
-    }
+    // if (this.polygon) {
+    //   this.renderPolygon(transform);
+    // }
 
     // Draw panel border if active
     if (this.isActive) {

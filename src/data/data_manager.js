@@ -44,7 +44,7 @@ export class DataManager {
       }
 
       // Load config from server (this triggers server to load all data)
-      const configRes = await fetch(`${API_BASE}/api/config?path=tests/test_configs/browser_test.yaml`);
+      const configRes = await fetch(`${API_BASE}/api/config?path=tests/test_configs/${this.config.configFile}`);
       // const configRes = await fetch(`${API_BASE}/api/config?path=tests/test_configs/lombok.yaml`);
       if (!configRes.ok) {
         throw new Error(`Failed to load config: ${configRes.status}`);

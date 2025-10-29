@@ -8,12 +8,13 @@ import { DataManager } from '../data/data_manager.js';
 import { Panel } from './panel.js';
 import { PanelManager } from './panel_manager.js';
 import { SyncController } from './sync_controller.js';
-import { LandslideNavigator } from './landslide_navigator.js';
+import { GridNavigator } from './grid_navigator.js';
 import { ProgressTracker } from './progress_tracker.js';
 import { QuickJump } from './quick_jump.js';
 import { KeyboardHandler } from './keyboard_handler.js';
 import { LabelPanel } from './label_panel.js';
 import { NavigationState } from '../state/navigation_state.js';
+import { ClassCounter } from '../state/class_counter.js';
 import { PerformanceMonitor } from '../utils/performance.js';
 import { showLoading, hideLoading } from './transitions.js';
 import { calculateDisplayWindow } from '../utils/window_calculator.js';
@@ -33,11 +34,12 @@ class MultiPanelLandslideApp {
     this.labelPanel = null;
     this.navigationState = null;
     this.performanceMonitor = null;
+    this.classCounter = null;
     this.landslides = [];
     this.config = null;
     this.isLoading = false;
     this.currentLabel = null;
-    this.currentLandslideId = null;
+    this.currentTileId = null;
     this.interfaceMode = 'basic'; // Default mode
   }
 
@@ -66,29 +68,18 @@ class MultiPanelLandslideApp {
         throw new Error('No landslides found in dataset');
       }
 
-      this.showStatus(`Loaded ${this.landslides.length} landslides`);
+      this.showStatus(`Loaded ${this.landslides.length} polygons`);
 
-      // Initialize navigation components
-      this.setupNavigation();
+      // Initialize navigation components (async now)
+      await this.setupNavigation();
 
       // Setup UI
       this.setupPanels();
       this.setupControls();
       // this.setupEventHandlers();
 
-      // Restore last session
-      const lastId = this.navigationState.getLastLandslideId();
-      let startIndex = 0;
-      if (lastId) {
-        const index = this.landslides.findIndex(l =>
-          (l.properties?.FID || l.id) === lastId);
-        if (index >= 0) {
-          startIndex = index;
-        }
-      }
-
-      // Load first/last landslide
-      await this.navigator.goTo(startIndex);
+      // Load first tile
+      await this.navigator.goTo(0);
 
       this.showStatus('Ready');
     } catch (error) {
@@ -102,8 +93,9 @@ class MultiPanelLandslideApp {
    */
   async loadConfig() {
     try {
-      const response = await fetch('data/test_data_summary.json');
+      // const response = await fetch('data/test_data_summary.json');
       // const response = await fetch('data/lombok/lombok.json');
+      const response = await fetch('data/porgera/porgera.json');
       const summary = await response.json();
 
       return {
@@ -118,7 +110,9 @@ class MultiPanelLandslideApp {
         predictions: {
           path: summary.files.predictions.path,
           shape: summary.files.predictions.shape
-        }
+        },
+        grid_sampling: summary.grid_sampling,
+        configFile: summary.server_config
       };
     } catch (error) {
       console.warn('Could not load config, using defaults:', error);
@@ -142,32 +136,36 @@ class MultiPanelLandslideApp {
   /**
    * Setup navigation components
    */
-  setupNavigation() {
+  async setupNavigation() {
     // Navigation state
     this.navigationState = new NavigationState();
 
-    // Navigator
-    this.navigator = new LandslideNavigator(this.landslides, this.dataManager);
-    this.navigator.on('change', async ({ landslide, index }) => {
-      await this.loadLandslide(index);
+    // Class counter for tracking label statistics
+    const labelConfig = this.config.labels || [
+      { code: 'large-overmapping' },
+      { code: 'overmapping' },
+      { code: 'accurate' },
+      { code: 'undermapping' },
+      { code: 'large-undermapping' }
+    ];
+    this.classCounter = new ClassCounter(labelConfig);
+
+    // Grid Navigator (replaces LandslideNavigator)
+    const polygons = this.dataManager.landslides; // GeoJSON feature collection
+    this.navigator = new GridNavigator(this.config, this.dataManager, polygons);
+
+    // Initialize grid
+    await this.navigator.initialize();
+
+    this.navigator.on('change', async ({ tile, index, total }) => {
+      await this.loadTile(tile, index, total);
     });
 
     // Progress tracker
     const progressContainer = document.getElementById('progress-tracker-container');
     if (progressContainer) {
-      this.progressTracker = new ProgressTracker(progressContainer, this.landslides.length);
-    }
-
-    // Quick jump
-    const quickJumpContainer = document.getElementById('quick-jump-container');
-    if (quickJumpContainer) {
-      this.quickJump = new QuickJump(quickJumpContainer, this.landslides);
-      this.quickJump.loadHistory();
-      this.quickJump.loadBookmarks();
-
-      this.quickJump.onSelect(async ({ index, id }) => {
-        await this.navigator.goTo(index);
-      });
+      const totalTiles = this.navigator.getTotalTiles();
+      this.progressTracker = new ProgressTracker(progressContainer, totalTiles);
     }
 
     // Keyboard handler
@@ -424,11 +422,11 @@ class MultiPanelLandslideApp {
     if (labelPanelContainer) {
       this.labelPanel = new LabelPanel(labelPanelContainer, {
         labels: this.config.labels || [
-          { code: 'landslide', label: 'Landslide', color: '#dc3545', key: '1' },
-          { code: 'no-landslide', label: 'No Landslide', color: '#28a745', key: '2' },
-          { code: 'uncertain', label: 'Uncertain', color: '#ffc107', key: '3' },
-          { code: 'skip', label: 'Skip', color: '#6c757d', key: '4' },
-          { code: 'flag', label: 'Flag for Review', color: '#ff6b6b', key: '5' }
+          { code: 'large-overmapping', label: 'Large Overmapping', color: '#FF0000', key: '1' },
+          { code: 'overmapping', label: 'Overmapping', color: '#FF8800', key: '2' },
+          { code: 'accurate', label: 'Accurate', color: '#00FF00', key: '3' },
+          { code: 'undermapping', label: 'Undermapping', color: '#0088FF', key: '4' },
+          { code: 'large-undermapping', label: 'Large Undermapping', color: '#0000FF', key: '5' }
         ]
       }, this.interfaceMode);
 
@@ -475,7 +473,135 @@ class MultiPanelLandslideApp {
   }
 
   /**
-   * Load and display a landslide
+   * Load and display a grid tile
+   */
+  async loadTile(tile, index, total) {
+    if (this.isLoading) return;
+
+    this.isLoading = true;
+    this.currentTileId = tile.id;
+
+    // Show loading indicators
+    this.panelManager.getAllPanels().forEach(panel => {
+      showLoading(panel.container, 'Loading tile...');
+    });
+
+    try {
+      this.showStatus(`Loading tile ${index + 1}/${total}...`);
+
+      // Get metadata
+      const metadata = await this.dataManager.getData('numpy_stack').metadata;
+
+      // Use time indices calculated from polygon months
+      const beforeMonth = tile.beforeMonth || 0;
+      const afterMonth = tile.afterMonth || 1;
+
+      // Tile bounds are already in pixel coordinates
+      const windowBounds = {
+        rowStart: tile.bounds.rowStart,
+        rowEnd: tile.bounds.rowEnd,
+        colStart: tile.bounds.colStart,
+        colEnd: tile.bounds.colEnd
+      };
+
+      // Fetch image tiles from server using polygon-based time indices
+      const source1Data = await this.dataManager.getImageTile(beforeMonth, windowBounds);
+      const source2Data = await this.dataManager.getImageTile(afterMonth, windowBounds);
+
+      // For now, use same data for planet panels
+      const planetBeforeData = { ...source1Data };
+      const planetAfterData = { ...source2Data };
+
+      // Prediction data
+      const predictionData = await this.dataManager.getImageTile(afterMonth, windowBounds, 3, "predictions");
+
+      // Labels data (ground truth)
+      const labelsData = await this.dataManager.getLabelTile(afterMonth, windowBounds);
+
+      // Get polygons in this tile for display
+      const polygonsInTile = tile.polygonIds.map(id =>
+        this.landslides.find(p => (p.properties?.FID || p.id) === id)
+      ).filter(Boolean);
+
+      // Update all panels
+      this.panelManager.updateAll({
+        landslide: polygonsInTile[0] || null, // Use first polygon for metadata
+        source1Data: {
+          array: source1Data.data,
+          shape: source1Data.shape,
+          bounds: tile.bounds
+        },
+        source2Data: {
+          array: source2Data.data,
+          shape: source2Data.shape,
+          bounds: tile.bounds
+        },
+        planetBeforeData: {
+          array: planetBeforeData.data,
+          shape: planetBeforeData.shape,
+          bounds: tile.bounds
+        },
+        planetAfterData: {
+          array: planetAfterData.data,
+          shape: planetAfterData.shape,
+          bounds: tile.bounds
+        },
+        predictionData: {
+          array: predictionData.data,
+          shape: predictionData.shape,
+          bounds: tile.bounds
+        },
+        labelsData: {
+          array: labelsData.data,
+          shape: labelsData.shape,
+          bounds: tile.bounds
+        }
+      });
+
+      // Set polygons for all panels
+      polygonsInTile.forEach(polygon => {
+        if (polygon) {
+          polygon.metadata = metadata;
+          this.panelManager.getAllPanels().forEach(panel => {
+            panel.setPolygon(polygon);
+          });
+        }
+      });
+
+      // Hide loading indicators
+      this.panelManager.getAllPanels().forEach(panel => {
+        hideLoading(panel.container);
+      });
+
+      // Update info panel
+      this.updateTileInfo(tile, index, total);
+
+      // Update progress tracker
+      if (this.progressTracker) {
+        this.progressTracker.update(index);
+      }
+
+      // Update navigation buttons
+      this.updateNavigationButtons();
+
+      this.syncController.resetAllViews();
+
+      this.showStatus(`Tile ${index + 1}/${total} (${tile.polygonIds.length} polygons)`);
+    } catch (error) {
+      this.showError(`Failed to load tile: ${error.message}`);
+      console.error(error);
+
+      // Hide loading indicators
+      this.panelManager.getAllPanels().forEach(panel => {
+        hideLoading(panel.container);
+      });
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  /**
+   * Load and display a landslide (DEPRECATED - keeping for compatibility)
    */
   async loadLandslide(index) {
     if (this.isLoading) return;
@@ -629,7 +755,42 @@ class MultiPanelLandslideApp {
   }
 
   /**
-   * Update info panel
+   * Update tile info panel
+   */
+  updateTileInfo(tile, index, total) {
+    const infoPanel = document.getElementById('landslide-info');
+
+    if (!infoPanel) return;
+
+    const classCounts = this.classCounter.getAllCounts();
+    const totalLabeled = this.classCounter.getTotalCount();
+
+    // Format month info if available
+    const monthInfo = tile.month !== null && tile.month !== undefined
+      ? `<p><strong>Month:</strong> ${tile.month} (Before: ${tile.beforeMonth}, After: ${tile.afterMonth})</p>`
+      : '';
+
+    infoPanel.innerHTML = `
+      <p><strong>Tile ID:</strong> ${tile.id}</p>
+      <p><strong>Position:</strong> ${index + 1} / ${total}</p>
+      <p><strong>Grid:</strong> Row ${tile.gridRow}, Col ${tile.gridCol}</p>
+      <p><strong>Polygons:</strong> ${tile.polygonIds.length}</p>
+      ${monthInfo}
+      <p><strong>Total Labeled:</strong> ${totalLabeled}</p>
+      <p class="hint">Use arrow keys to navigate. Press I to toggle mode.</p>
+      <details style="margin-top: 1rem;">
+        <summary style="cursor: pointer; color: #4a9eff;">Class Counts</summary>
+        <div style="margin-top: 0.5rem; font-size: 0.85rem;">
+          ${Object.entries(classCounts).map(([code, count]) =>
+            `<p>${code}: <strong>${count}</strong></p>`
+          ).join('')}
+        </div>
+      </details>
+    `;
+  }
+
+  /**
+   * Update info panel (DEPRECATED - kept for compatibility)
    */
   updateInfoPanel(landslide, index) {
     const infoPanel = document.getElementById('landslide-info');
@@ -723,13 +884,17 @@ class MultiPanelLandslideApp {
    */
   async saveLabelToServer(labelState) {
     try {
-      if (this.currentLandslideId === null || this.currentLandslideId === undefined) {
-        console.error('No current landslide ID');
+      if (this.currentTileId === null || this.currentTileId === undefined) {
+        console.error('No current tile ID');
         return;
       }
 
+      // Get previous label from tile
+      const currentTile = this.navigator.getCurrent();
+      const previousLabel = currentTile?.label || null;
+
       const labelData = {
-        id: this.currentLandslideId,
+        id: this.currentTileId,
         label: labelState.label,
         confidence: labelState.confidence,
         notes: labelState.notes,
@@ -749,24 +914,25 @@ class MultiPanelLandslideApp {
       const result = await response.json();
       console.log('Label saved:', result);
 
-      // Update local landslide object
-      const currentLandslide = this.navigator.getCurrent();
-      if (currentLandslide) {
-        if (!currentLandslide.properties) {
-          currentLandslide.properties = {};
-        }
-        currentLandslide.properties.label = labelData.label;
-        currentLandslide.properties.label_confidence = labelData.confidence;
-        currentLandslide.properties.label_notes = labelData.notes;
-        currentLandslide.properties.label_timestamp = labelData.timestamp;
+      // Update local tile object
+      if (currentTile) {
+        currentTile.label = labelData.label;
+        currentTile.label_confidence = labelData.confidence;
+        currentTile.label_notes = labelData.notes;
+        currentTile.label_timestamp = labelData.timestamp;
       }
 
-      // Update progress tracker if this is a definitive label
-      if (this.progressTracker && (labelState.label === 'landslide' || labelState.label === 'no-landslide')) {
+      // Update class counter
+      if (this.classCounter) {
+        this.classCounter.updateLabel(previousLabel, labelState.label);
+      }
+
+      // Update progress tracker
+      if (this.progressTracker) {
         this.progressTracker.incrementStat('labeled');
       }
 
-      // Auto-advance to next landslide
+      // Auto-advance to next tile
       this.navigator.next();
 
     } catch (error) {

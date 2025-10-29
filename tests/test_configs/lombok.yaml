@@ -34,15 +34,38 @@ display:
   max_window: 32
 
 labels:
-  - code: 0
-    name: Not Evaluated
-    color: "#808080"
-  - code: 1
-    name: Correct
-    color: "#00FF00"
-  - code: 2
-    name: Incorrect
+  - code: large-overmapping
+    name: Large Overmapping
     color: "#FF0000"
-  - code: 3
-    name: Uncertain
-    color: "#FFFF00"
+    key: "1"
+  - code: overmapping
+    name: Overmapping
+    color: "#FF8800"
+    key: "2"
+  - code: accurate
+    name: Accurate
+    color: "#00FF00"
+    key: "3"
+  - code: undermapping
+    name: Undermapping
+    color: "#0088FF"
+    key: "4"
+  - code: large-undermapping
+    name: Large Undermapping
+    color: "#0000FF"
+    key: "5"
+
+grid_sampling:
+  tile_size: 64  # Size of each grid tile in pixels
+  random_seed: 42  # Seed for reproducible pseudo-random sampling
+  require_polygons: true  # Only show tiles that contain polygons
+
+labels_output:
+  file: data/lombok/tile_labels_64.csv  # CSV file to store tile labels
+
+class_counts:
+  large-overmapping: 0
+  overmapping: 0
+  accurate: 0
+  undermapping: 0
+  large-undermapping: 0

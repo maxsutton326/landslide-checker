@@ -592,57 +592,72 @@ class LandslideServerHandler(BaseHTTPRequestHandler):
                 # Validate required fields
                 if "id" not in label_data or label_data["id"] is None:
                     self.send_json_response(
-                        {"error": "Feature ID is required"}, status=400
+                        {"error": "Tile ID is required"}, status=400
                     )
                     return
 
-                if not data_cache["loaded"] or data_cache["shapefile"] is None:
+                if not data_cache["loaded"]:
                     self.send_json_response({"error": "Data not loaded"}, status=500)
                     return
 
-                # Find feature
-                gdf = data_cache["shapefile"]
-                feature_id = label_data["id"]
+                # Get CSV file path from config
+                labels_output_config = data_cache["config"].get("labels_output", {})
+                csv_path = labels_output_config.get("file")
 
-                # Find by FID or index
-                if "FID" in gdf.columns:
-                    mask = gdf["FID"] == feature_id
-                else:
-                    mask = gdf.index == feature_id
-
-                if not mask.any():
+                if not csv_path:
                     self.send_json_response(
-                        {"error": f"Feature with ID {feature_id} not found"}, status=404
+                        {"error": "labels_output.file not configured"}, status=500
                     )
                     return
 
-                # Update feature properties
-                idx = gdf[mask].index[0]
-                gdf.loc[idx, "label"] = label_data.get("label")
-                gdf.loc[idx, "label_confidence"] = label_data.get("confidence")
-                gdf.loc[idx, "label_notes"] = label_data.get("notes")
-                gdf.loc[idx, "label_timestamp"] = label_data.get(
-                    "timestamp", int(time.time() * 1000)
-                )
+                tile_id = label_data["id"]
+                label = label_data.get("label")
+                confidence = label_data.get("confidence")
+                notes = label_data.get("notes", "")
+                timestamp = label_data.get("timestamp", int(time.time() * 1000))
 
-                # Write back to file
-                shp_path = data_cache["config"]["data_sources"]["shapefile"]["file"]
+                # Ensure directory exists
+                csv_dir = os.path.dirname(csv_path)
+                if csv_dir and not os.path.exists(csv_dir):
+                    os.makedirs(csv_dir, exist_ok=True)
 
-                if shp_path.endswith(".geojson") or shp_path.endswith(".json"):
-                    # Save as GeoJSON
-                    gdf.to_file(shp_path, driver="GeoJSON")
-                elif shp_path.endswith(".gpkg"):
-                    # Save as GeoPackage
-                    gdf.to_file(shp_path, driver="GPKG")
-                else:
-                    # Save as Shapefile
-                    gdf.to_file(shp_path)
+                # Initialize CSV if it doesn't exist
+                if not os.path.exists(csv_path):
+                    import csv
+                    with open(csv_path, 'w', newline='') as f:
+                        writer = csv.writer(f)
+                        writer.writerow(['tile_id', 'label', 'confidence', 'notes', 'timestamp'])
+
+                # Read existing labels
+                import csv
+                labels_dict = {}
+                if os.path.exists(csv_path):
+                    with open(csv_path, 'r', newline='') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            labels_dict[row['tile_id']] = row
+
+                # Update or add new label
+                labels_dict[tile_id] = {
+                    'tile_id': tile_id,
+                    'label': label,
+                    'confidence': confidence,
+                    'notes': notes,
+                    'timestamp': timestamp
+                }
+
+                # Write back to CSV
+                with open(csv_path, 'w', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=['tile_id', 'label', 'confidence', 'notes', 'timestamp'])
+                    writer.writeheader()
+                    for row in labels_dict.values():
+                        writer.writerow(row)
 
                 self.send_json_response(
                     {
                         "success": True,
-                        "id": feature_id,
-                        "label": label_data.get("label"),
+                        "id": tile_id,
+                        "label": label,
                     }
                 )
                 return

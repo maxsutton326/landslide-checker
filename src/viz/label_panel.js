@@ -96,10 +96,11 @@ export class LabelPanel extends EventEmitter {
   createLabelOptions() {
     this.labelOptionsContainer.innerHTML = '';
 
-    // Filter labels for basic mode (only landslide and no-landslide)
-    const labelsToShow = this.mode === 'basic'
-      ? this.labelConfig.labels.filter(l => l.code === 'landslide' || l.code === 'no-landslide')
-      : this.labelConfig.labels;
+    // Filter labels for basic mode (only most common fidelity categories)
+    // const labelsToShow = this.mode === 'basic'
+    //   ? this.labelConfig.labels.filter(l => l.code === 'accurate' || l.code === 'overmapping' || l.code === 'undermapping')
+    //   : this.labelConfig.labels;
+    const labelsToShow = this.labelConfig.labels;
 
     labelsToShow.forEach(labelDef => {
       const option = document.createElement('button');

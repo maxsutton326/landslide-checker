@@ -30,6 +30,12 @@
       "source2": "data/source2_metadata.json"
     }
   },
+  "grid_sampling": {
+    "tile_size": 64,
+    "random_seed": 42,
+    "require_polygons": "true"
+  },
+  "server_config": "browser_test.yaml",
   "notes": [
     "NumPy arrays are stored as JSON for testing (use .npy in production)",
     "GeoJSON used instead of shapefile for easier testing",
