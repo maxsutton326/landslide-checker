@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Handler Input Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 2rem;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        .test-section {
+            background: #2a2a2a;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            border: 2px solid #3a3a3a;
+        }
+
+        input {
+            padding: 0.5rem;
+            background: #1a1a1a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 14px;
+            width: 300px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+
+        #event-log {
+            background: #0a0a0a;
+            padding: 1rem;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+        }
+
+        .log-entry {
+            margin: 0.25rem 0;
+            color: #c0c0c0;
+        }
+
+        .log-entry.warning {
+            color: #ffa500;
+        }
+
+        .log-entry.success {
+            color: #00ff00;
+        }
+
+        .log-entry.error {
+            color: #ff4444;
+        }
+    </style>
+</head>
+<body>
+    <h1>Keyboard Handler Input Detection Test</h1>
+
+    <div class="test-section">
+        <h2>Test Input Field</h2>
+        <p>Try typing numbers and letters in the input field below. The keyboard handler should ignore these keys.</p>
+        <input type="text" id="test-input" class="quick-jump-input" placeholder="Type numbers like 1234...">
+    </div>
+
+    <div class="test-section">
+        <h2>Instructions</h2>
+        <p>1. Click in the input field above</p>
+        <p>2. Try typing numbers (1, 2, 3, etc.)</p>
+        <p>3. Try typing letters (a, b, c, etc.)</p>
+        <p>4. Watch the event log below</p>
+        <p><strong>Expected:</strong> When typing in the input field, keyboard handler should show "isTyping=true" and ignore the keys</p>
+        <p><strong>Issue:</strong> If keys trigger bindings while typing in input, then detection is broken</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Event Log</h2>
+        <div id="event-log"></div>
+    </div>
+
+    <script type="module">
+        import { KeyboardHandler } from '../src/viz/keyboard_handler.js';
+
+        const log = (message, type = 'info') => {
+            const eventLog = document.getElementById('event-log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        };
+
+        // Initialize keyboard handler
+        const kb = new KeyboardHandler();
+
+        log('KeyboardHandler initialized', 'success');
+
+        // Listen to action events
+        kb.on('action', (data) => {
+            log(`ACTION TRIGGERED: ${data.action} (key: "${data.key}")`, 'warning');
+        });
+
+        // Specifically listen to label actions (which use number keys)
+        for (let i = 1; i <= 6; i++) {
+            kb.on(`label-${i}`, () => {
+                log(`LABEL-${i} ACTION TRIGGERED - This should NOT happen while typing in input!`, 'error');
+            });
+        }
+
+        // Add input event listener to show what user is typing
+        const input = document.getElementById('test-input');
+        input.addEventListener('input', (e) => {
+            log(`Input value changed: "${e.target.value}"`, 'success');
+        });
+
+        input.addEventListener('keydown', (e) => {
+            log(`Input keydown: "${e.key}"`, 'info');
+        });
+
+        log('Test ready. Click in the input field and start typing numbers.', 'success');
+    </script>
+</body>
+</html>

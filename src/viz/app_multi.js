@@ -265,6 +265,17 @@ class MultiPanelLandslideApp {
     this.keyboardHandler = new KeyboardHandler();
     this.setupKeyboardBindings();
 
+        // Quick jump
+    const quickJumpContainer = document.getElementById('quick-jump-container');
+    if (quickJumpContainer) {
+      this.quickJump = new QuickJump(quickJumpContainer, this.landslides);
+      this.quickJump.loadHistory();
+      this.quickJump.loadBookmarks();
+
+      this.quickJump.onSelect(async ({ index, id }) => {
+        await this.navigator.goTo(index);
+      });
+    }
     // Performance monitor (optional)
     if (window.location.search.includes('debug')) {
       this.performanceMonitor = new PerformanceMonitor({ fpsTarget: 30 });

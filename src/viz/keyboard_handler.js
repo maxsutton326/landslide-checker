@@ -165,9 +165,13 @@ export class KeyboardHandler extends EventEmitter {
     if (!this.isEnabled) return;
 
     // Ignore if typing in input field (unless it's Escape or Ctrl+J)
-    if (this.isTypingInInput(e.target) &&
+    const isTyping = this.isTypingInInput(e.target);
+    console.log(`KeyboardHandler: key="${e.key}", isTyping=${isTyping}, target=${e.target?.tagName || 'unknown'}, targetClass="${e.target?.className || 'none'}"`);
+
+    if (isTyping &&
         e.key !== 'Escape' &&
         !(e.ctrlKey && (e.key === 'j' || e.key === 'J'))) {
+      console.log(`KeyboardHandler: Ignoring key "${e.key}" because typing in input`);
       return;
     }
 
@@ -181,6 +185,8 @@ export class KeyboardHandler extends EventEmitter {
     const binding = this.findBinding(e);
 
     if (binding) {
+      console.log(`KeyboardHandler: Found binding for "${e.key}" -> action: ${binding.action}`);
+
       // Prevent default if configured
       if (this.options.preventConflicts || this.preventedKeys.has(e.key)) {
         e.preventDefault();

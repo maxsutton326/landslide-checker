@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Input Detection Test</title>
+    <style>
+        body {
+            padding: 2rem;
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        input {
+            padding: 0.5rem;
+            font-size: 16px;
+            margin: 1rem 0;
+            display: block;
+        }
+        #output {
+            background: #000;
+            padding: 1rem;
+            margin-top: 1rem;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Input Detection Test</h1>
+    <p>Type numbers in the input field below:</p>
+    <input type="text" id="test-input" placeholder="Type 1, 2, 3..." />
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(msg) {
+            output.textContent += msg + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function isTypingInInput(target) {
+            const tagName = target.tagName.toLowerCase();
+            return tagName === 'input' ||
+                   tagName === 'textarea' ||
+                   tagName === 'select' ||
+                   target.isContentEditable;
+        }
+
+        // Listen to ALL keydown events at document level (like KeyboardHandler does)
+        document.addEventListener('keydown', (e) => {
+            const isTyping = isTypingInInput(e.target);
+            log(`keydown: key="${e.key}", target=${e.target.tagName}, isTyping=${isTyping}`);
+
+            if (isTyping) {
+                log('  -> IGNORING because typing in input');
+            } else {
+                log('  -> Would trigger global shortcut');
+            }
+        });
+
+        log('Test ready. Click in the input and type numbers 1-6.\n');
+    </script>
+</body>
+</html>
