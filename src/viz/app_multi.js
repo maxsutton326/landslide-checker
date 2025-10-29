@@ -102,8 +102,8 @@ class MultiPanelLandslideApp {
    */
   async loadConfig() {
     try {
-      const response = await fetch('data/test_data_summary.json');
-      // const response = await fetch('data/lombok/lombok.json');
+      // const response = await fetch('data/test_data_summary.json');
+      const response = await fetch('data/porgera/porgera.json');
       const summary = await response.json();
 
       return {
