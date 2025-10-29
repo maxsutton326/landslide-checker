@@ -1,0 +1,47 @@
+project:
+  name: Browser_Test_Project
+  date: 2025-10-07
+
+data_sources:
+  numpy_stack:
+    file: data/japan/images_lu.npy
+    epsg: 3857
+    origin: [15790772.15, 5293182.99]
+    pixel_size: [4.777, 4.777]
+    before_index: 0
+    after_index: 1
+
+  shapefile:
+    file: data/japan/japan.gpkg
+    id_field: fid
+
+  predictions:
+    file: data/japan/output_8.tif
+    origin: [15790772.15, 5293182.99]
+    pixel_size: [4.777, 4.777]
+    default_index: 1
+
+  labels:
+    file: data/japan/labels.npy
+    origin: [15790772.15, 5293182.99]
+    pixel_size: [4.777, 4.777]
+    default_index: 0
+
+display:
+  context_buffer: 1.5
+  min_window: 8
+  max_window: 32
+
+labels:
+  - code: 0
+    name: Not Evaluated
+    color: "#808080"
+  - code: 1
+    name: Correct
+    color: "#00FF00"
+  - code: 2
+    name: Incorrect
+    color: "#FF0000"
+  - code: 3
+    name: Uncertain
+    color: "#FFFF00"

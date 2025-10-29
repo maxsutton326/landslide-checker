@@ -1,0 +1,48 @@
+project:
+  name: Browser_Test_Project
+  date: 2025-10-07
+
+data_sources:
+  numpy_stack:
+    file: data/lombok/images.npy
+    epsg: 3857
+    origin: [12916671.108, -922363.2210]
+    pixel_size: [4.7683, 4.82005]
+    before_index: 0
+    after_index: 1
+
+  shapefile:
+    file: data/lombok/lombok_1.gpkg
+    id_field: fid
+    layer: reprojected
+
+  predictions:
+    file: data/lombok/output_7.tif
+    default_index: 1
+    origin: [12916673.0062, -922365.6203]
+    pixel_size: [4.777, 4.777]
+
+  labels:
+    file: data/lombok/labels.npy
+    default_index: 0
+    origin: [12916671.108, -922363.2210]
+    pixel_size: [4.7683, 4.82005]
+
+display:
+  context_buffer: 1.5
+  min_window: 8
+  max_window: 32
+
+labels:
+  - code: 0
+    name: Not Evaluated
+    color: "#808080"
+  - code: 1
+    name: Correct
+    color: "#00FF00"
+  - code: 2
+    name: Incorrect
+    color: "#FF0000"
+  - code: 3
+    name: Uncertain
+    color: "#FFFF00"
