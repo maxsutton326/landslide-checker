@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConfigSelector Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 2rem;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        .test-section {
+            background: #2a2a2a;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            border: 2px solid #3a3a3a;
+        }
+
+        .test-section h2 {
+            margin-top: 0;
+            color: #4a9eff;
+        }
+
+        #test-container {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .test-result {
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .test-result.pass {
+            background: rgba(40, 167, 69, 0.2);
+            border-left: 4px solid #28a745;
+            color: #5cb85c;
+        }
+
+        .test-result.fail {
+            background: rgba(220, 53, 69, 0.2);
+            border-left: 4px solid #dc3545;
+            color: #ff6b7a;
+        }
+
+        .test-result.info {
+            background: rgba(74, 158, 255, 0.2);
+            border-left: 4px solid #4a9eff;
+            color: #6ab0ff;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            background: #4a9eff;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+
+        button:hover {
+            background: #6ab0ff;
+        }
+
+        #event-log {
+            background: #0a0a0a;
+            padding: 1rem;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-entry {
+            margin: 0.25rem 0;
+            color: #c0c0c0;
+        }
+
+        .log-entry .timestamp {
+            color: #888;
+        }
+
+        .log-entry .event-name {
+            color: #4a9eff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>ConfigSelector Component Test Suite</h1>
+
+    <div class="test-section">
+        <h2>Test 1: Component Initialization</h2>
+        <div id="test-container-1"></div>
+        <button onclick="runTest1()">Run Test 1</button>
+        <div id="results-1"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Config Loading</h2>
+        <div id="test-container-2"></div>
+        <button onclick="runTest2()">Run Test 2</button>
+        <div id="results-2"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: onChange Event</h2>
+        <div id="test-container-3"></div>
+        <button onclick="runTest3()">Run Test 3</button>
+        <div id="results-3"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Manual Interaction</h2>
+        <p>Use the dropdown below to test manual interaction. Events will be logged below.</p>
+        <div id="test-container-4"></div>
+        <button onclick="runTest4()">Initialize Manual Test</button>
+        <div id="results-4"></div>
+        <h3>Event Log:</h3>
+        <div id="event-log"></div>
+    </div>
+
+    <script type="module">
+        import { ConfigSelector } from '../src/viz/config_selector.js';
+
+        // Store test instances globally
+        window.testInstances = {};
+
+        // Logging utilities
+        function log(message, type = 'info') {
+            const eventLog = document.getElementById('event-log');
+            if (eventLog) {
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+                eventLog.appendChild(entry);
+                eventLog.scrollTop = eventLog.scrollHeight;
+            }
+        }
+
+        function addResult(containerId, message, pass) {
+            const container = document.getElementById(containerId);
+            const result = document.createElement('div');
+            result.className = `test-result ${pass ? 'pass' : 'fail'}`;
+            result.textContent = `${pass ? '✓' : '✗'} ${message}`;
+            container.appendChild(result);
+        }
+
+        function addInfo(containerId, message) {
+            const container = document.getElementById(containerId);
+            const result = document.createElement('div');
+            result.className = 'test-result info';
+            result.textContent = `ℹ ${message}`;
+            container.appendChild(result);
+        }
+
+        // Test 1: Component Initialization
+        window.runTest1 = function() {
+            const container = document.getElementById('test-container-1');
+            const results = document.getElementById('results-1');
+            results.innerHTML = '';
+            container.innerHTML = '';
+
+            try {
+                const selector = new ConfigSelector(container);
+                window.testInstances.test1 = selector;
+
+                addResult('results-1', 'ConfigSelector instantiated successfully', true);
+                addResult('results-1', 'Container has class "config-selector"',
+                    container.classList.contains('config-selector'));
+                addResult('results-1', 'Select element created',
+                    container.querySelector('select') !== null);
+                addResult('results-1', 'Label element created',
+                    container.querySelector('label') !== null);
+
+                const select = container.querySelector('select');
+                addInfo('results-1', `Initial options count: ${select.options.length}`);
+                addInfo('results-1', `First option text: "${select.options[0]?.textContent}"`);
+
+            } catch (error) {
+                addResult('results-1', `Error: ${error.message}`, false);
+            }
+        };
+
+        // Test 2: Config Loading
+        window.runTest2 = async function() {
+            const container = document.getElementById('test-container-2');
+            const results = document.getElementById('results-2');
+            results.innerHTML = '';
+            container.innerHTML = '';
+
+            try {
+                const selector = new ConfigSelector(container);
+                window.testInstances.test2 = selector;
+
+                addInfo('results-2', 'Waiting for configs to load...');
+
+                // Wait for configs to load (check every 100ms for up to 5 seconds)
+                let loaded = false;
+                for (let i = 0; i < 50; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    const select = container.querySelector('select');
+                    if (select && !select.disabled && select.options.length > 1) {
+                        loaded = true;
+                        break;
+                    }
+                }
+
+                const select = container.querySelector('select');
+                addResult('results-2', 'Configs loaded successfully', loaded);
+                addInfo('results-2', `Options count: ${select.options.length}`);
+
+                for (let i = 0; i < select.options.length; i++) {
+                    addInfo('results-2', `Option ${i}: value="${select.options[i].value}" text="${select.options[i].textContent}"`);
+                }
+
+            } catch (error) {
+                addResult('results-2', `Error: ${error.message}`, false);
+            }
+        };
+
+        // Test 3: onChange Event
+        window.runTest3 = async function() {
+            const container = document.getElementById('test-container-3');
+            const results = document.getElementById('results-3');
+            results.innerHTML = '';
+            container.innerHTML = '';
+
+            try {
+                const selector = new ConfigSelector(container, 'initial-path.json');
+                window.testInstances.test3 = selector;
+
+                addInfo('results-3', 'Waiting for configs to load...');
+
+                // Wait for configs to load
+                let loaded = false;
+                for (let i = 0; i < 50; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    const select = container.querySelector('select');
+                    if (select && !select.disabled && select.options.length > 1) {
+                        loaded = true;
+                        break;
+                    }
+                }
+
+                if (!loaded) {
+                    addResult('results-3', 'Configs failed to load', false);
+                    return;
+                }
+
+                // Test 3a: Check if onChange method exists
+                addResult('results-3', 'onChange method exists', typeof selector.onChange === 'function');
+
+                // Test 3b: Register onChange listener
+                let eventFired = false;
+                let eventData = null;
+
+                selector.onChange((data) => {
+                    eventFired = true;
+                    eventData = data;
+                    addInfo('results-3', `onChange fired with data: ${JSON.stringify(data)}`);
+                });
+
+                addResult('results-3', 'onChange listener registered', true);
+                addInfo('results-3', `Listener count: ${selector.listenerCount('change')}`);
+
+                // Test 3c: Programmatically trigger change
+                const select = container.querySelector('select');
+                if (select.options.length > 1) {
+                    const newValue = select.options[1].value;
+                    addInfo('results-3', `Changing select value to: ${newValue}`);
+                    select.value = newValue;
+
+                    // Dispatch change event
+                    const changeEvent = new Event('change', { bubbles: true });
+                    select.dispatchEvent(changeEvent);
+
+                    // Wait a bit for event to propagate
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    addResult('results-3', 'onChange event fired', eventFired);
+                    if (eventData) {
+                        addInfo('results-3', `Event path: ${eventData.path}`);
+                        addInfo('results-3', `Event previousPath: ${eventData.previousPath}`);
+                    }
+                } else {
+                    addResult('results-3', 'Not enough options to test change', false);
+                }
+
+            } catch (error) {
+                addResult('results-3', `Error: ${error.message}`, false);
+                console.error(error);
+            }
+        };
+
+        // Test 4: Manual Interaction
+        window.runTest4 = async function() {
+            const container = document.getElementById('test-container-4');
+            const results = document.getElementById('results-4');
+            const eventLog = document.getElementById('event-log');
+            results.innerHTML = '';
+            container.innerHTML = '';
+            eventLog.innerHTML = '';
+
+            try {
+                const selector = new ConfigSelector(container);
+                window.testInstances.test4 = selector;
+
+                log('ConfigSelector initialized');
+
+                // Register onChange listener
+                selector.onChange((data) => {
+                    log(`<span class="event-name">onChange</span> event fired: path="${data.path}", previousPath="${data.previousPath}"`);
+                });
+
+                // Register select event listener
+                const select = container.querySelector('select');
+                select.addEventListener('change', (e) => {
+                    log(`<span class="event-name">select change</span> event: value="${e.target.value}"`);
+                });
+
+                addResult('results-4', 'Manual test initialized. Use the dropdown above and watch the event log.', true);
+                addInfo('results-4', 'Try selecting different configs from the dropdown');
+
+                // Wait for configs to load
+                log('Waiting for configs to load...');
+                for (let i = 0; i < 50; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    if (select && !select.disabled && select.options.length > 1) {
+                        log(`Configs loaded: ${select.options.length} options available`);
+                        break;
+                    }
+                }
+
+            } catch (error) {
+                addResult('results-4', `Error: ${error.message}`, false);
+                log(`ERROR: ${error.message}`);
+                console.error(error);
+            }
+        };
+
+        // Auto-run Test 1 on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, running Test 1...');
+            runTest1();
+        });
+    </script>
+</body>
+</html>

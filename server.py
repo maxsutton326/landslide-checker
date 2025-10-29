@@ -281,6 +281,38 @@ class LandslideServerHandler(BaseHTTPRequestHandler):
     def handle_api_get(self, pathname, params):
         """Handle API GET requests"""
         try:
+            # GET /api/configs - List available configs
+            if pathname == "/api/configs":
+                configs = []
+                data_dir = "data"
+
+                if os.path.exists(data_dir):
+                    # Walk through data/ directory
+                    for location in os.listdir(data_dir):
+                        location_path = os.path.join(data_dir, location)
+
+                        # Skip if not a directory
+                        if not os.path.isdir(location_path):
+                            continue
+
+                        # Look for ${location}.yaml or ${location}.json
+                        yaml_path = os.path.join(location_path, f"{location}.yaml")
+                        json_path = os.path.join(location_path, f"{location}.json")
+
+                        if os.path.exists(yaml_path):
+                            configs.append({
+                                "name": location,
+                                "path": yaml_path
+                            })
+                        elif os.path.exists(json_path):
+                            configs.append({
+                                "name": location,
+                                "path": json_path
+                            })
+
+                self.send_json_response({"configs": configs})
+                return
+
             # GET /api/config
             if pathname == "/api/config":
                 config_path = params.get(
@@ -729,6 +761,7 @@ def run_server():
 
     print(f"\nServer running at http://{HOST}:{PORT}/\n")
     print("API endpoints:")
+    print("  - GET /api/configs")
     print("  - GET /api/config?path=tests/test_configs/valid_config.yaml")
     print("  - GET /api/data/summary")
     print("  - GET /api/landslides")

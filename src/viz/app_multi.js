@@ -13,6 +13,7 @@ import { ProgressTracker } from './progress_tracker.js';
 import { QuickJump } from './quick_jump.js';
 import { KeyboardHandler } from './keyboard_handler.js';
 import { LabelPanel } from './label_panel.js';
+import { ConfigSelector } from './config_selector.js';
 import { NavigationState } from '../state/navigation_state.js';
 import { ClassCounter } from '../state/class_counter.js';
 import { PerformanceMonitor } from '../utils/performance.js';
@@ -32,11 +33,13 @@ class MultiPanelLandslideApp {
     this.quickJump = null;
     this.keyboardHandler = null;
     this.labelPanel = null;
+    this.configSelector = null;
     this.navigationState = null;
     this.performanceMonitor = null;
     this.classCounter = null;
     this.landslides = [];
     this.config = null;
+    this.currentConfigPath = null;
     this.isLoading = false;
     this.currentLabel = null;
     this.currentTileId = null;
@@ -46,12 +49,16 @@ class MultiPanelLandslideApp {
   /**
    * Initialize the application
    */
-  async init() {
+  async init(configPath = null) {
     try {
+      console.log("loading config")
       this.showStatus('Loading configuration...');
 
+      // Setup config selector first
+      this.setupConfigSelector(configPath);
+
       // Load configuration
-      this.config = await this.loadConfig();
+      this.config = await this.loadConfig(configPath);
 
       // Initialize data manager
       this.dataManager = new DataManager(this.config);
@@ -91,11 +98,16 @@ class MultiPanelLandslideApp {
   /**
    * Load configuration
    */
-  async loadConfig() {
+  async loadConfig(configPath = null) {
     try {
-      // const response = await fetch('data/test_data_summary.json');
-      // const response = await fetch('data/lombok/lombok.json');
-      const response = await fetch('data/porgera/porgera.json');
+      // Use provided path or default
+      if (!configPath) {
+        configPath = 'data/porgera/porgera.json';
+      }
+
+      this.currentConfigPath = configPath;
+
+      const response = await fetch(configPath);
       const summary = await response.json();
 
       return {
@@ -112,7 +124,8 @@ class MultiPanelLandslideApp {
           shape: summary.files.predictions.shape
         },
         grid_sampling: summary.grid_sampling,
-        configFile: summary.server_config
+        configFile: summary.server_config,
+        labels: summary.labels
       };
     } catch (error) {
       console.warn('Could not load config, using defaults:', error);
@@ -130,6 +143,86 @@ class MultiPanelLandslideApp {
           shape: [100, 100, 2]
         }
       };
+    }
+  }
+
+  /**
+   * Setup config selector
+   */
+  setupConfigSelector(initialPath = null) {
+    const configSelectorContainer = document.getElementById('config-selector-container');
+    if (!configSelectorContainer) return;
+
+    // Only create configSelector once
+    if (!this.configSelector) {
+      this.configSelector = new ConfigSelector(configSelectorContainer, initialPath);
+
+      // Handle config change
+      this.configSelector.onChange(async ({ path }) => {
+        console.log('Config selector onChange fired:', path);
+        if (path && path !== this.currentConfigPath) {
+          await this.switchConfig(path);
+        }
+      });
+    } else {
+      // Just update the current config path if selector already exists
+      if (initialPath) {
+        this.configSelector.setCurrentConfig(initialPath);
+      }
+    }
+  }
+
+  /**
+   * Switch to a different config
+   */
+  async switchConfig(configPath) {
+    try {
+      console.log(`Switching config from ${this.currentConfigPath} to ${configPath}`);
+      this.showStatus('Switching configuration...');
+
+      // Disable config selector during switch
+      if (this.configSelector) {
+        this.configSelector.setEnabled(false);
+      }
+
+      // Clean up existing components
+      if (this.navigator) {
+        this.navigator.removeAllListeners();
+      }
+      if (this.labelPanel) {
+        this.labelPanel.disableKeyboardShortcuts();
+      }
+      if (this.keyboardHandler) {
+        this.keyboardHandler.disable();
+      }
+
+      // Clear panels
+      if (this.panelManager) {
+        this.panelManager.getAllPanels().forEach(panel => {
+          panel.clear();
+        });
+      }
+
+      // Reload application with new config
+      // Note: setupConfigSelector will NOT create a new instance
+      await this.init(configPath);
+
+      console.log('Config switched successfully to:', configPath);
+
+      // Re-enable config selector
+      if (this.configSelector) {
+        this.configSelector.setCurrentConfig(configPath);
+        this.configSelector.setEnabled(true);
+      }
+
+    } catch (error) {
+      this.showError(`Failed to switch config: ${error.message}`);
+      console.error(error);
+
+      // Re-enable config selector on error
+      if (this.configSelector) {
+        this.configSelector.setEnabled(true);
+      }
     }
   }
 
@@ -271,43 +364,54 @@ class MultiPanelLandslideApp {
    * Setup panels
    */
   setupPanels() {
-    // Create panel manager
-    this.panelManager = new PanelManager();
+    // Only create panels once
+    if (!this.panelManager) {
+      console.log('Creating panels for the first time');
 
-    // Create panels
-    const panelConfigs = [
-      { id: 'source-1', type: 'source', label: 'Source Image 1 (Before)' },
-      { id: 'source-2', type: 'source', label: 'Source Image 2 (After)' },
-      { id: 'planet-before', type: 'planet', label: 'Planet Before' },
-      { id: 'planet-after', type: 'planet', label: 'Planet After' },
-      { id: 'prediction', type: 'prediction', label: 'Model Prediction' },
-      { id: 'labels', type: 'labels', label: 'Ground Truth Labels' }
-    ];
+      // Create panel manager
+      this.panelManager = new PanelManager();
 
-    panelConfigs.forEach(config => {
-      const container = document.getElementById(config.id);
-      if (container) {
-        const panel = new Panel(container, config.type, config.label);
-        this.panelManager.addPanel(config.id, panel);
+      // Create panels
+      const panelConfigs = [
+        { id: 'source-1', type: 'source', label: 'Source Image 1 (Before)' },
+        { id: 'source-2', type: 'source', label: 'Source Image 2 (After)' },
+        { id: 'planet-before', type: 'planet', label: 'Planet Before' },
+        { id: 'planet-after', type: 'planet', label: 'Planet After' },
+        { id: 'prediction', type: 'prediction', label: 'Model Prediction' },
+        { id: 'labels', type: 'labels', label: 'Ground Truth Labels' }
+      ];
 
-        // Enable interactions on all panels
-        panel.enableInteractions();
+      panelConfigs.forEach(config => {
+        const container = document.getElementById(config.id);
+        if (container) {
+          const panel = new Panel(container, config.type, config.label);
+          this.panelManager.addPanel(config.id, panel);
 
-        // Listen for hover events
-        panel.on('hover', (coords) => {
-          this.updateCoordinateDisplay(coords.geo);
-        });
+          // Enable interactions on all panels
+          panel.enableInteractions();
+
+          // Listen for hover events
+          panel.on('hover', (coords) => {
+            this.updateCoordinateDisplay(coords.geo);
+          });
+        }
+      });
+
+      // Create sync controller
+      this.syncController = new SyncController(this.panelManager);
+      this.syncController.enableSync();
+
+      // Set first panel as master
+      const firstPanel = this.panelManager.getPanel('source-1');
+      if (firstPanel) {
+        this.panelManager.setMasterPanel(firstPanel);
       }
-    });
-
-    // Create sync controller
-    this.syncController = new SyncController(this.panelManager);
-    this.syncController.enableSync();
-
-    // Set first panel as master
-    const firstPanel = this.panelManager.getPanel('source-1');
-    if (firstPanel) {
-      this.panelManager.setMasterPanel(firstPanel);
+    } else {
+      console.log('Panels already exist, reusing them');
+      // Panels already exist, just clear them
+      this.panelManager.getAllPanels().forEach(panel => {
+        panel.clear();
+      });
     }
   }
 
@@ -417,35 +521,40 @@ class MultiPanelLandslideApp {
     // Load interface mode preference
     this.interfaceMode = localStorage.getItem('interfaceMode') || 'advanced';
 
-    // Initialize Label Panel
-    const labelPanelContainer = document.getElementById('label-panel-container');
-    if (labelPanelContainer) {
-      this.labelPanel = new LabelPanel(labelPanelContainer, {
-        labels: this.config.labels || [
-          { code: 'large-overmapping', label: 'Large Overmapping', color: '#FF0000', key: '1' },
-          { code: 'overmapping', label: 'Overmapping', color: '#FF8800', key: '2' },
-          { code: 'accurate', label: 'Accurate', color: '#00FF00', key: '3' },
-          { code: 'undermapping', label: 'Undermapping', color: '#0088FF', key: '4' },
-          { code: 'large-undermapping', label: 'Large Undermapping', color: '#0000FF', key: '5' }
-        ]
-      }, this.interfaceMode);
+    // Initialize Label Panel (only once)
+    if (!this.labelPanel) {
+      const labelPanelContainer = document.getElementById('label-panel-container');
+      if (labelPanelContainer) {
+        this.labelPanel = new LabelPanel(labelPanelContainer, {
+          labels: this.config.labels || [
+            { code: 'large-overmapping', label: 'Large Overmapping', color: '#FF0000', key: '1' },
+            { code: 'overmapping', label: 'Overmapping', color: '#FF8800', key: '2' },
+            { code: 'accurate', label: 'Accurate', color: '#00FF00', key: '3' },
+            { code: 'undermapping', label: 'Undermapping', color: '#0088FF', key: '4' },
+            { code: 'large-undermapping', label: 'Large Undermapping', color: '#0000FF', key: '5' }
+          ]
+        }, this.interfaceMode);
 
-      // Handle label apply
-      this.labelPanel.onApply((state) => {
-        this.saveLabelToServer(state);
-      });
+        // Handle label apply
+        this.labelPanel.onApply((state) => {
+          this.saveLabelToServer(state);
+        });
 
-      // Enable keyboard shortcuts for label panel
-      this.labelPanel.enableKeyboardShortcuts();
+        // Enable keyboard shortcuts for label panel
+        this.labelPanel.enableKeyboardShortcuts();
+      }
     }
 
-    // Setup interface mode toggle button
-    const toggleModeBtn = document.getElementById('toggle-interface-mode');
-    if (toggleModeBtn) {
-      this.updateModeButtonText();
-      toggleModeBtn.addEventListener('click', () => {
-        this.toggleInterfaceMode();
-      });
+    // Setup interface mode toggle button (only add listener once)
+    if (!this.controlsSetup) {
+      const toggleModeBtn = document.getElementById('toggle-interface-mode');
+      if (toggleModeBtn) {
+        this.updateModeButtonText();
+        toggleModeBtn.addEventListener('click', () => {
+          this.toggleInterfaceMode();
+        });
+      }
+      this.controlsSetup = true;
     }
   }
 
