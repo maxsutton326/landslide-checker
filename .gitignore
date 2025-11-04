@@ -56,4 +56,4 @@ results/
 .claude_context.md
 data/**
 tests/test_configs/**
-tests/test_configs/
+analysis/**
