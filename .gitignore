@@ -55,4 +55,4 @@ results/
 # Claude Code context (session state)
 .claude_context.md
 data/**
-
+tests/test_configs
